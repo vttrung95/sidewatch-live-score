@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import * as ReactDOM from 'react-dom/client'
 import BoxScore from './box-score'
 import RedditFeed from './reddit-feed'
-import { getTodayDate, getYesterdayDate, formatGameTime, getTeamAbbr } from '@/lib/utils'
+import { getTeamAbbr } from '@/lib/utils'
+import { getTodayString, getYesterdayString, formatGameTime, shouldFallbackToYesterday } from '@/lib/locale'
 
 /* ─── Types ─────────────────────────────────────────────────────────── */
 
@@ -424,19 +425,17 @@ export default function GameSelector() {
   useEffect(() => {
     ;(async () => {
       try {
-        const today = getTodayDate()
-        const yesterday = getYesterdayDate()
+        const today = getTodayString()
+        const yesterday = getYesterdayString()
 
         let games = await fetchGames(today)
 
-        const todayHasActive = games.some(isActive)
-        if (!todayHasActive) {
+        if (shouldFallbackToYesterday(games.map((g) => ({ status: g.status.detailedState })))) {
           console.log(
             `[Sidewatch] today (${today}) has no Live/Final games — checking yesterday (${yesterday})`
           )
           const yesterdayGames = await fetchGames(yesterday)
-          const yesterdayHasActive = yesterdayGames.some(isActive)
-          if (yesterdayGames.length > 0 && yesterdayHasActive) {
+          if (!shouldFallbackToYesterday(yesterdayGames.map((g) => ({ status: g.status.detailedState })))) {
             games = yesterdayGames
             setHeading("Yesterday's Games — MLB")
           }
