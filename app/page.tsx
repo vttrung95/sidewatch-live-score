@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { supabase } from '@/lib/supabase'
 import { Sun, Moon, MessageSquare } from 'lucide-react'
 import GameSelector from '@/components/game-selector'
 import { getTimezoneLabel } from '@/lib/locale'
@@ -13,6 +14,8 @@ export default function Home() {
   const [description, setDescription] = useState('')
   const [email, setEmail] = useState('')
   const [submitted, setSubmitted] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [submitError, setSubmitError] = useState('')
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('sidewatch_theme')
@@ -46,18 +49,34 @@ export default function Home() {
     setIsDark(newIsDark)
   }
 
-  function handleFeedbackSubmit() {
+  async function handleFeedbackSubmit() {
     if (description.length < 10) {
-      alert('Please enter at least 10 characters.')
+      setSubmitError('Please enter at least 10 characters.')
       return
     }
-    setSubmitted(true)
-    setTimeout(() => {
-      setFeedbackOpen(false)
-      setSubmitted(false)
-      setDescription('')
-      setEmail('')
-    }, 1800)
+    setSubmitError('')
+    setIsLoading(true)
+    try {
+      const { error } = await supabase.from('feedback').insert({
+        type: feedbackType,
+        description: description,
+        contact_email: email || null,
+        user_agent: navigator.userAgent,
+        page_url: window.location.href,
+      })
+      if (error) throw error
+      setSubmitted(true)
+      setTimeout(() => {
+        setFeedbackOpen(false)
+        setSubmitted(false)
+        setDescription('')
+        setEmail('')
+      }, 2000)
+    } catch {
+      setSubmitError('Something went wrong. Try again.')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   // Only items that cannot be expressed as pure CSS variables
@@ -420,11 +439,15 @@ export default function Home() {
                   }}
                 />
 
+                {submitError && (
+                  <div className="text-[11px] text-red-400 mb-2">{submitError}</div>
+                )}
                 <button
                   onClick={handleFeedbackSubmit}
-                  className="w-full py-2 rounded-md bg-[#1a56db] text-white text-xs font-semibold"
+                  disabled={isLoading}
+                  className="w-full py-2 rounded-md bg-[#1a56db] text-white text-xs font-semibold disabled:opacity-60"
                 >
-                  Send Feedback
+                  {isLoading ? 'Sending...' : 'Send Feedback'}
                 </button>
               </>
             )}
