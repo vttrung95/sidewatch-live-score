@@ -134,9 +134,10 @@ export default function RedditFeed({
     try {
       const raw = localStorage.getItem(cacheKey)
       if (!raw) return false
-      const cached: RedditPost[] = JSON.parse(raw)
-      if (cached.length > 0) {
-        setPosts(cached)
+      const { posts, timestamp } = JSON.parse(raw)
+      if (!posts || Date.now() - timestamp > 10 * 60 * 1000) return false
+      if (posts.length > 0) {
+        setPosts(posts)
         setLabel('R/BASEBALL · CACHED')
         return true
       }
@@ -178,7 +179,7 @@ export default function RedditFeed({
         setPosts(filtered)
         setLabel(hasGameThread ? 'R/BASEBALL · GAME THREAD' : 'R/BASEBALL · NEW POSTS')
 
-        try { localStorage.setItem(cacheKey, JSON.stringify(filtered)) } catch {}
+        try { localStorage.setItem(cacheKey, JSON.stringify({ posts: filtered, timestamp: Date.now() })) } catch {}
       } catch {
         const delays = [5_000, 15_000, 30_000]
         const delay = delays[Math.min(retryCountRef.current, delays.length - 1)]
