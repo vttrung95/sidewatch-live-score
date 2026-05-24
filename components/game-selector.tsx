@@ -89,12 +89,13 @@ function WidgetWrapper({
     return () => clearInterval(id)
   }, [initialGame.gamePk])
 
+  // FIX 6: collapsed width 320px, height 72px
   const toggleCollapsed = useCallback(() => {
     const next = !collapsed
     setCollapsed(next)
     localStorage.setItem('widget_collapsed', String(next))
     try {
-      pipWindow.resizeTo(next ? 180 : 260, next ? 80 : 420)
+      pipWindow.resizeTo(next ? 320 : 260, next ? 72 : 420)
     } catch {}
   }, [collapsed, pipWindow])
 
@@ -108,29 +109,37 @@ function WidgetWrapper({
     <div
       style={{
         width: '100%',
-        height: collapsed ? '80px' : '420px',
+        height: collapsed ? '72px' : '420px',   // FIX 6
         overflow: 'hidden',
         display: 'flex',
         flexDirection: 'column',
         transition: 'height 200ms ease-in-out',
-        background: '#1E2A3A',
-        color: '#e2e8f0',
+        background: 'var(--bg-widget)',          // CSS var
+        color: 'var(--text-primary)',            // CSS var
         fontFamily: 'system-ui, sans-serif',
       }}
     >
-      {/* Header bar */}
+      {/* Header bar — keep brand blue, no variable */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: '0 10px',
-          height: collapsed ? '80px' : '36px',
+          height: collapsed ? '72px' : '36px',  // FIX 6
           background: '#1A56DB',
           flexShrink: 0,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        {/* FIX 6: score row — nowrap + flexShrink on every child */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          overflow: 'hidden',
+          width: '100%',
+          whiteSpace: 'nowrap',
+        }}>
           {isLive && !isDelayed && (
             <span
               style={{
@@ -140,14 +149,23 @@ function WidgetWrapper({
                 background: '#ff4444',
                 display: 'inline-block',
                 boxShadow: '0 0 4px #ff4444',
+                flexShrink: 0,
               }}
             />
           )}
-          <span style={{ fontWeight: 700, fontSize: collapsed ? '14px' : '13px', color: '#fff' }}>
+          <span style={{
+            fontWeight: 700,
+            fontSize: collapsed ? '14px' : '13px',
+            color: '#fff',
+            whiteSpace: 'nowrap',
+            flexShrink: 0,
+          }}>
             {awayAbbr} {score.away ?? '–'} — {homeAbbr} {score.home ?? '–'}
           </span>
           {inningLabel && isLive && !isDelayed && (
-            <span style={{ fontSize: '10px', color: '#bfdbfe' }}>{inningLabel}</span>
+            <span style={{ fontSize: '10px', color: '#bfdbfe', whiteSpace: 'nowrap', flexShrink: 0 }}>
+              {inningLabel}
+            </span>
           )}
           {isDelayed && (
             <span
@@ -159,6 +177,7 @@ function WidgetWrapper({
                 color: '#fff',
                 padding: '1px 4px',
                 borderRadius: '3px',
+                flexShrink: 0,
               }}
             >
               DELAYED
@@ -174,6 +193,7 @@ function WidgetWrapper({
                 color: '#fff',
                 padding: '1px 4px',
                 borderRadius: '3px',
+                flexShrink: 0,
               }}
             >
               LIVE
@@ -189,6 +209,7 @@ function WidgetWrapper({
                 color: '#fff',
                 padding: '1px 4px',
                 borderRadius: '3px',
+                flexShrink: 0,
               }}
             >
               FINAL
@@ -206,6 +227,7 @@ function WidgetWrapper({
             lineHeight: 1,
             padding: '4px',
             opacity: 0.9,
+            flexShrink: 0,
           }}
           title={collapsed ? 'Expand' : 'Collapse'}
         >
@@ -298,14 +320,21 @@ async function launchPiPWidget(game: MlbGame) {
   localStorage.setItem('sidewatch_active', JSON.stringify({ ts: Date.now() }))
 
   const initialCollapsed = localStorage.getItem('widget_collapsed') === 'true'
+  // FIX 6: collapsed initial size 320×72
   const pipWindow = await window.documentPictureInPicture.requestWindow({
-    width: initialCollapsed ? 180 : 260,
-    height: initialCollapsed ? 80 : 420,
+    width:  initialCollapsed ? 320 : 260,
+    height: initialCollapsed ? 72  : 420,
   })
 
   copyStylesToWindow(pipWindow)
+
+  // Propagate current theme class to PiP window
+  if (document.documentElement.classList.contains('light')) {
+    pipWindow.document.documentElement.classList.add('light')
+  }
+
   pipWindow.document.documentElement.style.cssText = 'height:100%;overflow:hidden'
-  pipWindow.document.body.style.cssText = 'margin:0;padding:0;background:#1E2A3A;height:100%;overflow:hidden'
+  pipWindow.document.body.style.cssText = 'margin:0;padding:0;background:var(--bg-widget);height:100%;overflow:hidden'
 
   const container = pipWindow.document.createElement('div')
   container.id = 'sidewatch-root'
@@ -368,14 +397,11 @@ async function fetchGames(date: string): Promise<MlbGame[]> {
   const res = await fetch(`/api/scores?url=${url}`)
   if (!res.ok) throw new Error('Failed to fetch schedule')
   const data = await res.json()
-  // Flatten across all returned date entries (handles postponed / doubleheader edge cases)
   const allGames: MlbGame[] = (data.dates ?? []).flatMap(
     (d: { games?: MlbGame[] }) => d.games ?? []
   )
   const unique = Array.from(new Map(allGames.map((g) => [g.gamePk, g])).values())
 
-  // Diagnostic log — shows raw API status for every game so timezone/status
-  // mismatches are immediately visible in the browser console.
   console.log(`[Sidewatch] schedule ${date} → ${unique.length} game(s)`)
   unique.forEach((g) =>
     console.log(
@@ -403,17 +429,6 @@ export default function GameSelector() {
 
         let games = await fetchGames(today)
 
-        // Fall back to yesterday when today has no active (Live/Final) games.
-        //
-        // Why this matters: MLB games run in US timezones. A user in UTC+7
-        // whose local clock rolled past midnight is still watching the same
-        // US evening slate that the API lists under yesterday's date. If we
-        // only queried today's date we'd get 16 "Scheduled" cards while live
-        // games sit invisible under yesterday's date.
-        //
-        // We fall back only when yesterday actually has Live or Final games,
-        // so early-morning checks (before any game has ever started) still
-        // display today's upcoming slate correctly.
         const todayHasActive = games.some(isActive)
         if (!todayHasActive) {
           console.log(
@@ -425,7 +440,6 @@ export default function GameSelector() {
             games = yesterdayGames
             setHeading("Yesterday's Games — MLB")
           }
-          // else: keep today's scheduled games — nothing better available
         }
 
         const unique = Array.from(new Map(games.map((g) => [g.gamePk, g])).values())
@@ -452,7 +466,9 @@ export default function GameSelector() {
       <div className="flex items-center justify-center py-24">
         <div className="text-center">
           <div className="text-[#1A56DB] text-4xl mb-4 animate-pulse">⚾</div>
-          <p className="text-slate-400 text-sm">Loading today's games…</p>
+          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+            Loading today&apos;s games…
+          </p>
         </div>
       </div>
     )
@@ -469,31 +485,35 @@ export default function GameSelector() {
   if (games.length === 0) {
     return (
       <div className="flex items-center justify-center py-24">
-        <p className="text-slate-400 text-sm">No games scheduled today</p>
+        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+          No games scheduled today
+        </p>
       </div>
     )
   }
 
   return (
-    <div className="w-full">
-      <h2 className="text-slate-400 text-xs font-semibold uppercase tracking-widest mb-4">
+    <div className="w-full" style={{ background: 'var(--bg-page)' }}>
+      <h2
+        className="text-xs font-semibold uppercase tracking-widest mb-4"
+        style={{ color: 'var(--text-muted)' }}
+      >
         {heading}
       </h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {games.map((game) => {
-          const isLive = game.status.abstractGameState === 'Live'
-          const isFinal = game.status.abstractGameState === 'Final'
+          const isLive    = game.status.abstractGameState === 'Live'
+          const isFinal   = game.status.abstractGameState === 'Final'
           const isUpcoming = game.status.abstractGameState === 'Preview'
           const isDelayed = isDelayedOrSuspended(game)
           const isDoubleHeader = game.doubleHeader === 'Y' || game.doubleHeader === 'S'
-          const awayAbbr = getTeamAbbr(game.teams.away.team.name)
-          const homeAbbr = getTeamAbbr(game.teams.home.team.name)
-          const ls = game.linescore
+          const awayAbbr  = getTeamAbbr(game.teams.away.team.name)
+          const homeAbbr  = getTeamAbbr(game.teams.home.team.name)
+          const ls        = game.linescore
           const inningLabel =
             isLive && !isDelayed && ls?.inningState && ls?.currentInningOrdinal
               ? `${ls.inningState} ${ls.currentInningOrdinal}`
               : null
-          // Button is disabled only for non-delayed upcoming games
           const isDisabled = (isUpcoming && !isDelayed) || launching === game.gamePk
 
           return (
@@ -501,29 +521,45 @@ export default function GameSelector() {
               key={game.gamePk}
               className={[
                 'rounded-lg border p-4 flex flex-col gap-3 transition-colors',
-                isLive && !isDelayed
-                  ? 'col-span-1 sm:col-span-2 border-[#1A56DB] bg-[#162132] border-l-4'
-                  : isDelayed
-                  ? 'col-span-1 sm:col-span-2 border-amber-600 bg-[#1E2A3A] border-l-4'
-                  : 'border-slate-700 bg-[#1E2A3A]',
+                (isLive && !isDelayed) || isDelayed ? 'col-span-1 sm:col-span-2 border-l-4' : '',
               ].join(' ')}
+              style={{
+                backgroundColor: (isLive && !isDelayed) ? 'var(--bg-live)' : 'var(--bg-surface)',
+                borderColor: (isLive && !isDelayed)
+                  ? 'var(--border-active)'
+                  : isDelayed
+                  ? '#d97706'
+                  : 'var(--border-primary)',
+              }}
             >
               {/* Teams + Score */}
               <div className="flex items-center justify-between">
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center gap-2">
-                    <span className="font-mono font-bold text-base text-slate-100">
+                    <span
+                      className="font-mono font-bold text-base"
+                      style={{ color: 'var(--text-primary)' }}
+                    >
                       {awayAbbr}
                     </span>
-                    <span className="text-xs text-slate-400 truncate max-w-[140px]">
+                    <span
+                      className="text-xs truncate max-w-[140px]"
+                      style={{ color: 'var(--text-secondary)' }}
+                    >
                       {game.teams.away.team.name}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="font-mono font-bold text-base text-slate-100">
+                    <span
+                      className="font-mono font-bold text-base"
+                      style={{ color: 'var(--text-primary)' }}
+                    >
                       {homeAbbr}
                     </span>
-                    <span className="text-xs text-slate-400 truncate max-w-[140px]">
+                    <span
+                      className="text-xs truncate max-w-[140px]"
+                      style={{ color: 'var(--text-secondary)' }}
+                    >
                       {game.teams.home.team.name}
                     </span>
                   </div>
@@ -536,10 +572,9 @@ export default function GameSelector() {
                       <span
                         className="font-mono font-bold text-xl"
                         style={{
-                          color:
-                            (game.teams.away.score ?? 0) > (game.teams.home.score ?? 0)
-                              ? '#4ade80'
-                              : '#e2e8f0',
+                          color: (game.teams.away.score ?? 0) > (game.teams.home.score ?? 0)
+                            ? 'var(--score-winning)'
+                            : 'var(--score-normal)',
                         }}
                       >
                         {game.teams.away.score ?? '–'}
@@ -547,10 +582,9 @@ export default function GameSelector() {
                       <span
                         className="font-mono font-bold text-xl"
                         style={{
-                          color:
-                            (game.teams.home.score ?? 0) > (game.teams.away.score ?? 0)
-                              ? '#4ade80'
-                              : '#e2e8f0',
+                          color: (game.teams.home.score ?? 0) > (game.teams.away.score ?? 0)
+                            ? 'var(--score-winning)'
+                            : 'var(--score-normal)',
                         }}
                       >
                         {game.teams.home.score ?? '–'}
@@ -579,17 +613,26 @@ export default function GameSelector() {
                       LIVE
                     </span>
                     {inningLabel && (
-                      <span className="text-xs text-slate-400">{inningLabel}</span>
+                      <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                        {inningLabel}
+                      </span>
                     )}
                   </>
                 )}
                 {isFinal && !isDelayed && (
-                  <span className="text-xs font-bold bg-slate-600 text-slate-200 px-2 py-0.5 rounded">
+                  <span
+                    className="text-xs font-bold px-2 py-0.5 rounded"
+                    style={{
+                      background: 'var(--bg-surface-2)',
+                      color: 'var(--text-secondary)',
+                      border: '1px solid var(--border-primary)',
+                    }}
+                  >
                     FINAL
                   </span>
                 )}
                 {isUpcoming && !isDelayed && (
-                  <span className="text-xs text-slate-400">
+                  <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
                     Game starts at {formatGameTime(game.gameDate)} — check back then
                   </span>
                 )}
@@ -602,9 +645,13 @@ export default function GameSelector() {
                 className={[
                   'w-full py-2 px-4 rounded-md text-sm font-semibold transition-all',
                   isDisabled
-                    ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
+                    ? 'cursor-not-allowed'
                     : 'bg-[#1A56DB] hover:bg-blue-600 text-white cursor-pointer',
                 ].join(' ')}
+                style={isDisabled ? {
+                  background: 'var(--border-primary)',
+                  color: 'var(--text-primary)',
+                } : {}}
               >
                 {launching === game.gamePk
                   ? 'Launching…'

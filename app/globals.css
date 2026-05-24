@@ -1,12 +1,72 @@
 @import "tailwindcss";
 
+/* ─── Design tokens ─────────────────────────────────────────────────── */
+
 :root {
-  --background: #0f1824;
-  --foreground: #e2e8f0;
-  --brand-blue: #1A56DB;
-  --dark-navy: #1E2A3A;
-  --success-green: #3B6D11;
-  --alert-red: #A32D2D;
+  /* Backgrounds */
+  --bg-page:        #0f1824;
+  --bg-surface:     #111c29;
+  --bg-surface-2:   #162132;
+  --bg-widget:      #1E2A3A;
+  --bg-input:       #0f1824;
+  --bg-live:        #0c1829;
+
+  /* Borders */
+  --border-primary: #1e2d3d;
+  --border-active:  #1a56db;
+
+  /* Text */
+  --text-primary:   #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-muted:     #64748b;
+  --text-dimmed:    #475569;
+
+  /* Brand */
+  --brand-blue:     #1A56DB;
+  --brand-blue-bg:  #0f1f38;
+
+  /* Scores */
+  --score-winning:  #4ade80;
+  --score-normal:   #e2e8f0;
+
+  /* Legacy aliases kept for @theme inline */
+  --background:     #0f1824;
+  --foreground:     #e2e8f0;
+  --dark-navy:      #1E2A3A;
+  --success-green:  #3B6D11;
+  --alert-red:      #A32D2D;
+}
+
+html.light {
+  /* Backgrounds */
+  --bg-page:        #f8fafc;
+  --bg-surface:     #ffffff;
+  --bg-surface-2:   #eff6ff;
+  --bg-widget:      #ffffff;
+  --bg-input:       #f8fafc;
+  --bg-live:        #eff6ff;
+
+  /* Borders */
+  --border-primary: #e2e8f0;
+  --border-active:  #1a56db;
+
+  /* Text */
+  --text-primary:   #1e293b;
+  --text-secondary: #475569;
+  --text-muted:     #64748b;
+  --text-dimmed:    #94a3b8;
+
+  /* Brand */
+  --brand-blue:     #1A56DB;
+  --brand-blue-bg:  #dbeafe;
+
+  /* Scores */
+  --score-winning:  #16a34a;
+  --score-normal:   #1e293b;
+
+  /* Legacy aliases */
+  --background:     #f8fafc;
+  --foreground:     #1e293b;
 }
 
 @theme inline {

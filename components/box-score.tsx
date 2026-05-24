@@ -322,7 +322,7 @@ export default function BoxScore({
           </thead>
           <tbody>
             <tr>
-              <td style={{ ...s.tdTeam, color: game.awayR > game.homeR ? '#4ade80' : '#e2e8f0' }}>
+              <td style={{ ...s.tdTeam, color: game.awayR > game.homeR ? 'var(--score-winning)' : 'var(--score-normal)' }}>
                 {getTeamAbbr(game.awayName)}
               </td>
               {visibleInningNums.map((n) => <td key={n} style={s.tdInn}>{inningCell(n, 'away')}</td>)}
@@ -331,7 +331,7 @@ export default function BoxScore({
               <td style={s.tdRHE}>{game.awayE}</td>
             </tr>
             <tr>
-              <td style={{ ...s.tdTeam, color: game.homeR > game.awayR ? '#4ade80' : '#e2e8f0' }}>
+              <td style={{ ...s.tdTeam, color: game.homeR > game.awayR ? 'var(--score-winning)' : 'var(--score-normal)' }}>
                 {getTeamAbbr(game.homeName)}
               </td>
               {visibleInningNums.map((n) => <td key={n} style={s.tdInn}>{inningCell(n, 'home')}</td>)}
@@ -350,8 +350,8 @@ export default function BoxScore({
 
 const s: Record<string, React.CSSProperties> = {
   wrap: {
-    background: '#1E2A3A',
-    color: '#e2e8f0',
+    background: 'var(--bg-widget)',
+    color: 'var(--text-primary)',
     fontFamily: 'system-ui, sans-serif',
     fontSize: '12px',
     width: '100%',
@@ -360,15 +360,15 @@ const s: Record<string, React.CSSProperties> = {
     display: 'flex',
     justifyContent: 'center',
     padding: '16px',
-    background: '#1E2A3A',
+    background: 'var(--bg-widget)',
   },
-  muted: { color: '#9ca3af', fontSize: '12px' },
+  muted: { color: 'var(--text-muted)', fontSize: '12px' },
   statusRow: {
     display: 'flex',
     alignItems: 'center',
     gap: '6px',
     padding: '6px 8px',
-    borderBottom: '1px solid #2d3f52',
+    borderBottom: '1px solid var(--border-primary)',
   },
   liveBadge: {
     display: 'inline-flex',
@@ -391,21 +391,21 @@ const s: Record<string, React.CSSProperties> = {
   },
   finalBadge: {
     background: '#4b5563',
-    color: '#e2e8f0',
+    color: 'var(--text-primary)',
     fontSize: '10px',
     fontWeight: 700,
     letterSpacing: '0.05em',
     padding: '1px 5px',
     borderRadius: '3px',
   },
-  venue: { color: '#9ca3af', fontSize: '11px', marginLeft: 'auto' },
+  venue: { color: 'var(--text-secondary)', fontSize: '11px', marginLeft: 'auto' },
   situation: {
     display: 'flex',
     justifyContent: 'space-between',
     padding: '4px 8px',
     fontSize: '11px',
-    color: '#cbd5e1',
-    background: '#162132',
+    color: 'var(--text-secondary)',
+    background: 'var(--bg-surface-2)',
   },
   diamond: {
     position: 'relative',
@@ -430,9 +430,9 @@ const s: Record<string, React.CSSProperties> = {
     gap: '2px',
     padding: '4px 8px',
     fontSize: '10px',
-    color: '#9ca3af',
-    background: '#162132',
-    borderTop: '1px solid #2d3f52',
+    color: 'var(--text-secondary)',
+    background: 'var(--bg-surface-2)',
+    borderTop: '1px solid var(--border-primary)',
   },
   tableWrap: { overflowX: 'hidden', padding: '4px 0' },
   table: {
@@ -442,12 +442,12 @@ const s: Record<string, React.CSSProperties> = {
     fontSize: '10px',
     tableLayout: 'fixed',
   },
-  thTeam: { textAlign: 'left',   padding: '2px 4px', color: '#6b7280', fontWeight: 600, width: '28px' },
-  thInn:  { textAlign: 'center', padding: '2px 1px', color: '#6b7280', fontWeight: 600 },
-  thRHE:  { textAlign: 'center', padding: '2px 2px', color: '#6b7280', fontWeight: 700, borderLeft: '1px solid #2d3f52', width: '20px' },
+  thTeam: { textAlign: 'left',   padding: '2px 4px', color: 'var(--text-muted)', fontWeight: 600, width: '28px' },
+  thInn:  { textAlign: 'center', padding: '2px 1px', color: 'var(--text-muted)', fontWeight: 600 },
+  thRHE:  { textAlign: 'center', padding: '2px 2px', color: 'var(--text-muted)', fontWeight: 700, borderLeft: '1px solid var(--border-primary)', width: '20px' },
   tdTeam: { textAlign: 'left',   padding: '3px 4px', fontWeight: 700, fontSize: '10px', overflow: 'hidden' },
-  tdInn:  { textAlign: 'center', padding: '3px 1px', color: '#e2e8f0' },
-  tdRHE:  { textAlign: 'center', padding: '3px 2px', color: '#e2e8f0', borderLeft: '1px solid #2d3f52' },
+  tdInn:  { textAlign: 'center', padding: '3px 1px', color: 'var(--text-primary)' },
+  tdRHE:  { textAlign: 'center', padding: '3px 2px', color: 'var(--text-primary)', borderLeft: '1px solid var(--border-primary)' },
   delayedBadge: {
     background: '#B45309',
     color: '#fff',

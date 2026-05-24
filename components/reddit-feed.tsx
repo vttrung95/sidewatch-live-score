@@ -258,16 +258,16 @@ export default function RedditFeed({
 
 const s: Record<string, React.CSSProperties> = {
   wrap: {
-    background: '#1E2A3A',
-    color: '#e2e8f0',
+    background: 'var(--bg-widget)',
+    color: 'var(--text-primary)',
     fontFamily: 'system-ui, sans-serif',
     width: '100%',
-    borderTop: '1px solid #2d3f52',
+    borderTop: '1px solid var(--border-primary)',
   },
   header: {
     padding: '6px 8px',
-    background: '#162132',
-    borderBottom: '1px solid #2d3f52',
+    background: 'var(--bg-surface-2)',
+    borderBottom: '1px solid var(--border-primary)',
   },
   label: {
     fontSize: '10px',
@@ -275,12 +275,12 @@ const s: Record<string, React.CSSProperties> = {
     letterSpacing: '0.08em',
     color: '#60a5fa',
   },
-  empty: { padding: '12px 8px', fontSize: '11px', color: '#6b7280' },
+  empty: { padding: '12px 8px', fontSize: '11px', color: 'var(--text-muted)' },
   postLink: {
     display: 'flex',
     gap: '8px',
     padding: '6px 8px',
-    borderBottom: '1px solid #2d3f52',
+    borderBottom: '1px solid var(--border-primary)',
     textDecoration: 'none',
     color: 'inherit',
     alignItems: 'flex-start',
@@ -292,7 +292,7 @@ const s: Record<string, React.CSSProperties> = {
     objectFit: 'cover',
     borderRadius: '4px',
     flexShrink: 0,
-    background: '#2d3f52',
+    background: 'var(--bg-surface-2)',
   },
   postBody: {
     display: 'flex',
@@ -304,19 +304,19 @@ const s: Record<string, React.CSSProperties> = {
   postTitle: {
     fontSize: '11px',
     lineHeight: 1.4,
-    color: '#e2e8f0',
+    color: 'var(--text-primary)',
     overflow: 'hidden',
     display: '-webkit-box',
     WebkitLineClamp: 2,
     WebkitBoxOrient: 'vertical',
   },
-  postMeta: { fontSize: '10px', color: '#6b7280' },
+  postMeta: { fontSize: '10px', color: 'var(--text-muted)' },
   loadMore: {
     width: '100%',
     padding: '8px',
     background: 'none',
     border: 'none',
-    borderTop: '1px solid #2d3f52',
+    borderTop: '1px solid var(--border-primary)',
     color: '#60a5fa',
     fontSize: '11px',
     cursor: 'pointer',
