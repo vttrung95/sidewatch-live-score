@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Sun, Moon, MessageSquare } from 'lucide-react'
 import GameSelector from '@/components/game-selector'
+import { getTimezoneLabel } from '@/lib/locale'
 
 export default function Home() {
   // true = dark (default, no class on html); false = light (html.light)
@@ -323,7 +324,7 @@ export default function Home() {
                 className="cursor-pointer hover:text-slate-200 transition-colors underline underline-offset-2 decoration-slate-700"
                 title="Timezone settings — coming soon"
               >
-                Timezone: GMT+7
+                Timezone: {getTimezoneLabel()}
               </span>
             </p>
             <div className="text-[10px] mb-1" style={{ color: 'var(--text-secondary)' }}>
