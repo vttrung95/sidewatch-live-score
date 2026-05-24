@@ -16,6 +16,7 @@ export default function Home() {
   const [submitted, setSubmitted] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [submitError, setSubmitError] = useState('')
+  const [timezoneLabel, setTimezoneLabel] = useState('...')
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('sidewatch_theme')
@@ -31,6 +32,10 @@ export default function Home() {
     if (!localStorage.getItem('sidewatch_sport')) {
       localStorage.setItem('sidewatch_sport', 'mlb')
     }
+  }, [])
+
+  useEffect(() => {
+    setTimezoneLabel(getTimezoneLabel())
   }, [])
 
   function toggleTheme() {
@@ -343,7 +348,7 @@ export default function Home() {
                 className="cursor-pointer hover:text-slate-200 transition-colors underline underline-offset-2 decoration-slate-700"
                 title="Timezone settings — coming soon"
               >
-                Timezone: {getTimezoneLabel()}
+                Timezone: {timezoneLabel}
               </span>
             </p>
             <div className="text-[10px] mb-1" style={{ color: 'var(--text-secondary)' }}>
