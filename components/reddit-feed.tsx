@@ -77,9 +77,7 @@ function getThumbnail(post: RedditPost): string | null {
 }
 
 async function fetchSubreddit(sub: string): Promise<RedditPost[]> {
-  const res = await fetch(`https://www.reddit.com/r/${sub}/new.json?limit=50`, {
-    headers: { Accept: 'application/json' },
-  })
+  const res = await fetch(`/api/reddit?subreddit=${sub}&limit=50`)
   if (!res.ok) throw new Error(`Reddit ${sub} ${res.status}`)
   const json = await res.json()
   return (json.data?.children ?? []).map((c: { data: RedditPost }) => c.data)

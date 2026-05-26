@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import type { User } from '@supabase/supabase-js'
 import { Sun, Moon, MessageSquare } from 'lucide-react'
 import GameSelector from '@/components/game-selector'
 import { getTimezoneLabel } from '@/lib/locale'
@@ -17,6 +18,11 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false)
   const [submitError, setSubmitError] = useState('')
   const [timezoneLabel, setTimezoneLabel] = useState('...')
+  const [user, setUser] = useState<User | null>(null)
+  const [showAuthModal, setShowAuthModal] = useState(false)
+  const [authEmail, setAuthEmail] = useState('')
+  const [authStep, setAuthStep] = useState<'input' | 'sent' | 'loading'>('input')
+  const [authError, setAuthError] = useState('')
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('sidewatch_theme')
@@ -36,6 +42,18 @@ export default function Home() {
 
   useEffect(() => {
     setTimezoneLabel(getTimezoneLabel())
+  }, [])
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user)
+    })
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null)
+    })
+
+    return () => subscription.unsubscribe()
   }, [])
 
   function toggleTheme() {
@@ -82,6 +100,41 @@ export default function Home() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const handleSignIn = async () => {
+    if (!authEmail || !authEmail.includes('@')) {
+      setAuthError('Please enter a valid email address.')
+      return
+    }
+    setAuthStep('loading')
+    setAuthError('')
+
+    const { error } = await supabase.auth.signInWithOtp({
+      email: authEmail,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
+    })
+
+    if (error) {
+      setAuthError(error.message)
+      setAuthStep('input')
+    } else {
+      setAuthStep('sent')
+    }
+  }
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+    setUser(null)
+  }
+
+  const closeAuthModal = () => {
+    setShowAuthModal(false)
+    setAuthStep('input')
+    setAuthEmail('')
+    setAuthError('')
   }
 
   // Only items that cannot be expressed as pure CSS variables
@@ -324,13 +377,28 @@ export default function Home() {
               <MessageSquare size={13} />
               Feedback
             </button>
-            <span
-              className="text-xs cursor-not-allowed"
-              style={{ color: 'var(--text-muted)' }}
-              title="Coming soon"
-            >
-              Sign in
-            </span>
+            {user ? (
+              <div className="flex items-center gap-2">
+                <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                  {user.email}
+                </span>
+                <button
+                  onClick={handleSignOut}
+                  className="text-xs underline hover:opacity-70 transition-opacity"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  Sign out
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowAuthModal(true)}
+                className="text-xs underline hover:opacity-70 transition-opacity"
+                style={{ color: 'var(--text-secondary)' }}
+              >
+                Sign in
+              </button>
+            )}
           </div>
 
           <div className="mb-3" style={{ borderTop: '1px solid var(--border-primary)' }} />
@@ -360,6 +428,100 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {/* AUTH MODAL */}
+      {showAuthModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={(e) => e.target === e.currentTarget && closeAuthModal()}
+        >
+          <div
+            className="rounded-2xl p-6 w-full max-w-sm mx-4 shadow-2xl border"
+            style={{
+              background: 'var(--bg-primary)',
+              borderColor: 'var(--border-color)',
+              color: 'var(--text-primary)',
+            }}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h2 className="text-lg font-semibold">Sign in to Sidewatch</h2>
+                <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+                  Save preferences & sync across devices
+                </p>
+              </div>
+              <button
+                onClick={closeAuthModal}
+                className="w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:opacity-70"
+                style={{ background: 'var(--bg-secondary)' }}
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+              </button>
+            </div>
+
+            {authStep === 'sent' ? (
+              <div className="text-center py-4">
+                <div className="text-4xl mb-3">📬</div>
+                <p className="font-medium mb-1">Check your email</p>
+                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                  Magic link sent to <strong>{authEmail}</strong>
+                </p>
+                <p className="text-xs mt-3" style={{ color: 'var(--text-secondary)' }}>
+                  Click the link in the email to sign in. You can close this.
+                </p>
+                <button
+                  onClick={closeAuthModal}
+                  className="mt-5 w-full py-2.5 rounded-xl text-sm font-medium transition-opacity hover:opacity-80"
+                  style={{ background: 'var(--accent)', color: '#fff' }}
+                >
+                  Got it
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="mb-4">
+                  <label className="text-sm font-medium mb-1.5 block" style={{ color: 'var(--text-secondary)' }}>
+                    Email address
+                  </label>
+                  <input
+                    type="email"
+                    value={authEmail}
+                    onChange={(e) => { setAuthEmail(e.target.value); setAuthError('') }}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSignIn()}
+                    placeholder="you@example.com"
+                    autoFocus
+                    className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border transition-colors"
+                    style={{
+                      background: 'var(--bg-secondary)',
+                      borderColor: authError ? '#ef4444' : 'var(--border-color)',
+                      color: 'var(--text-primary)',
+                    }}
+                  />
+                  {authError && (
+                    <p className="text-xs mt-1.5 text-red-400">{authError}</p>
+                  )}
+                </div>
+
+                <button
+                  onClick={handleSignIn}
+                  disabled={authStep === 'loading'}
+                  className="w-full py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-80 disabled:opacity-50"
+                  style={{ background: 'var(--accent)', color: '#fff' }}
+                >
+                  {authStep === 'loading' ? 'Sending...' : 'Send magic link ✨'}
+                </button>
+
+                <p className="text-xs text-center mt-4" style={{ color: 'var(--text-secondary)' }}>
+                  No password needed. We'll email you a sign-in link.
+                </p>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* FEEDBACK MODAL */}
       {feedbackOpen && (
