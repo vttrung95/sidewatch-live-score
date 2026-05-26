@@ -5,7 +5,8 @@ import { supabase, upsertUserPreferences, loadUserPreferences } from '@/lib/supa
 import type { User } from '@supabase/supabase-js'
 import { Sun, Moon, MessageSquare } from 'lucide-react'
 import GameSelector from '@/components/game-selector'
-import { getTimezoneLabel } from '@/lib/locale'
+import { getTimezoneLabel, getActiveLanguage, getActiveTimezone, setLanguage, setTimezone } from '@/lib/locale'
+import type { SupportedLanguage } from '@/lib/locale'
 
 export default function Home() {
   // true = dark (default, no class on html); false = light (html.light)
@@ -22,6 +23,10 @@ export default function Home() {
   const [widgetGameId, setWidgetGameId] = useState<string | null>(null)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const syncedUserIdRef = useRef<string | null>(null)
+  const [showLocalePopup, setShowLocalePopup] = useState(false)
+  const [activeLanguage, setActiveLanguage] = useState<SupportedLanguage>('en')
+  const [selectedTimezone, setSelectedTimezone] = useState('auto')
+  const localePopupRef = useRef<HTMLDivElement>(null)
   const [authEmail, setAuthEmail] = useState('')
   const [authStep, setAuthStep] = useState<'input' | 'sent' | 'loading'>('input')
   const [authError, setAuthError] = useState('')
@@ -48,6 +53,9 @@ export default function Home() {
     }
     const savedGameId = localStorage.getItem('sidewatch_widget_game_id')
     if (savedGameId) setWidgetGameId(savedGameId)
+    setActiveLanguage(getActiveLanguage())
+    const savedTz = localStorage.getItem('sidewatch_timezone')
+    setSelectedTimezone(savedTz ?? 'auto')
   }, [])
 
   // Sync preferences with DB on login
@@ -64,6 +72,15 @@ export default function Home() {
       if (data && !error) {
         if (data.theme) applyTheme(data.theme)
         if (data.widget_game_id) setWidgetGameId(data.widget_game_id)
+        if (data.language) {
+          setLanguage(data.language as SupportedLanguage)
+          setActiveLanguage(data.language as SupportedLanguage)
+        }
+        if (data.timezone) {
+          setTimezone(data.timezone)
+          setSelectedTimezone(data.timezone)
+          setTimezoneLabel(getTimezoneLabel(data.timezone))
+        }
       } else {
         // New user — push current local state to DB
         const currentTheme = localStorage.getItem('sidewatch_theme') ?? 'dark'
@@ -93,6 +110,36 @@ export default function Home() {
 
     return () => subscription.unsubscribe()
   }, [])
+
+  function handleLanguageChange(lang: SupportedLanguage) {
+    setLanguage(lang)
+    setActiveLanguage(lang)
+    if (user) upsertUserPreferences(user.id, { language: lang })
+  }
+
+  function handleTimezoneChange(tz: string) {
+    setSelectedTimezone(tz)
+    if (tz === 'auto') {
+      localStorage.removeItem('sidewatch_timezone')
+      setTimezoneLabel(getTimezoneLabel())
+      if (user) upsertUserPreferences(user.id, { timezone: Intl.DateTimeFormat().resolvedOptions().timeZone })
+    } else {
+      setTimezone(tz)
+      setTimezoneLabel(getTimezoneLabel(tz))
+      if (user) upsertUserPreferences(user.id, { timezone: tz })
+    }
+  }
+
+  useEffect(() => {
+    if (!showLocalePopup) return
+    function handleClickOutside(e: MouseEvent) {
+      if (localePopupRef.current && !localePopupRef.current.contains(e.target as Node)) {
+        setShowLocalePopup(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showLocalePopup])
 
   function toggleTheme() {
     const newTheme = isDark ? 'light' : 'dark'
@@ -434,21 +481,91 @@ export default function Home() {
           <div className="mb-3" style={{ borderTop: '1px solid var(--border-primary)' }} />
 
           <div className="text-center">
-            <p className="text-[10px] mb-1" style={{ color: 'var(--text-secondary)' }}>
-              <span
-                className="cursor-pointer hover:text-slate-200 transition-colors underline underline-offset-2 decoration-slate-700"
-                title="Language settings — coming soon"
+            <div className="relative inline-block mb-1" ref={localePopupRef}>
+              <p
+                className="text-[10px] cursor-pointer hover:opacity-80 transition-opacity"
+                style={{ color: 'var(--text-secondary)' }}
+                onClick={() => setShowLocalePopup((v) => !v)}
               >
-                Language: EN
-              </span>
-              {' · '}
-              <span
-                className="cursor-pointer hover:text-slate-200 transition-colors underline underline-offset-2 decoration-slate-700"
-                title="Timezone settings — coming soon"
-              >
-                Timezone: {timezoneLabel}
-              </span>
-            </p>
+                <span className="underline underline-offset-2 decoration-slate-700">
+                  Language: {activeLanguage.toUpperCase()}
+                </span>
+                {' · '}
+                <span className="underline underline-offset-2 decoration-slate-700">
+                  Timezone: {timezoneLabel}
+                </span>
+              </p>
+
+              {showLocalePopup && (
+                <div
+                  className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 rounded-xl shadow-xl z-40"
+                  style={{
+                    background: 'var(--bg-surface)',
+                    border: '1px solid var(--border-primary)',
+                    color: 'var(--text-primary)',
+                    padding: '16px',
+                  }}
+                >
+                  {/* Language */}
+                  <div className="mb-4">
+                    <div
+                      className="text-[10px] font-semibold uppercase tracking-wider mb-2"
+                      style={{ color: 'var(--text-secondary)' }}
+                    >
+                      Language
+                    </div>
+                    <div className="flex gap-2">
+                      {(['en', 'vi'] as const).map((lang) => (
+                        <button
+                          key={lang}
+                          onClick={() => handleLanguageChange(lang)}
+                          className="flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                          style={
+                            activeLanguage === lang
+                              ? { background: '#1A56DB', color: '#fff', border: '1px solid #1A56DB' }
+                              : { background: 'var(--bg-surface-2)', color: 'var(--text-secondary)', border: '1px solid var(--border-primary)' }
+                          }
+                        >
+                          {lang.toUpperCase()}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Timezone */}
+                  <div>
+                    <div
+                      className="text-[10px] font-semibold uppercase tracking-wider mb-2"
+                      style={{ color: 'var(--text-secondary)' }}
+                    >
+                      Timezone
+                    </div>
+                    <select
+                      value={selectedTimezone}
+                      onChange={(e) => handleTimezoneChange(e.target.value)}
+                      className="w-full rounded-lg px-3 py-2 text-xs outline-none"
+                      style={{
+                        background: 'var(--bg-input)',
+                        border: '1px solid var(--border-primary)',
+                        color: 'var(--text-primary)',
+                      }}
+                    >
+                      <option value="auto">Auto-detect (browser default)</option>
+                      <option value="UTC">UTC</option>
+                      <option value="America/New_York">America/New_York (ET)</option>
+                      <option value="America/Chicago">America/Chicago (CT)</option>
+                      <option value="America/Denver">America/Denver (MT)</option>
+                      <option value="America/Los_Angeles">America/Los_Angeles (PT)</option>
+                      <option value="Asia/Bangkok">Asia/Bangkok (GMT+7)</option>
+                      <option value="Asia/Tokyo">Asia/Tokyo (JST)</option>
+                      <option value="Asia/Seoul">Asia/Seoul (KST)</option>
+                      <option value="Europe/London">Europe/London (GMT)</option>
+                      <option value="Europe/Paris">Europe/Paris (CET)</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+            </div>
             <div className="text-[10px] mb-1" style={{ color: 'var(--text-secondary)' }}>
               Requires Chrome 116+ or Edge 116+
             </div>
