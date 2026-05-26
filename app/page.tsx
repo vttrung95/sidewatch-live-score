@@ -8,6 +8,17 @@ import GameSelector from '@/components/game-selector'
 import { getTimezoneLabel, getActiveLanguage, getActiveTimezone, setLanguage, setTimezone } from '@/lib/locale'
 import type { SupportedLanguage } from '@/lib/locale'
 
+const MLB_TEAMS = [
+  'Arizona Diamondbacks', 'Atlanta Braves', 'Baltimore Orioles', 'Boston Red Sox',
+  'Chicago Cubs', 'Chicago White Sox', 'Cincinnati Reds', 'Cleveland Guardians',
+  'Colorado Rockies', 'Detroit Tigers', 'Houston Astros', 'Kansas City Royals',
+  'Los Angeles Angels', 'Los Angeles Dodgers', 'Miami Marlins', 'Milwaukee Brewers',
+  'Minnesota Twins', 'New York Mets', 'New York Yankees', 'Oakland Athletics',
+  'Philadelphia Phillies', 'Pittsburgh Pirates', 'San Diego Padres', 'San Francisco Giants',
+  'Seattle Mariners', 'St. Louis Cardinals', 'Tampa Bay Rays', 'Texas Rangers',
+  'Toronto Blue Jays', 'Washington Nationals',
+]
+
 export default function Home() {
   // true = dark (default, no class on html); false = light (html.light)
   const [isDark, setIsDark] = useState(true)
@@ -30,6 +41,9 @@ export default function Home() {
   const [authEmail, setAuthEmail] = useState('')
   const [authStep, setAuthStep] = useState<'input' | 'sent' | 'loading'>('input')
   const [authError, setAuthError] = useState('')
+  const [showAccountPanel, setShowAccountPanel] = useState(false)
+  const [favTeam, setFavTeam] = useState('')
+  const [defaultSport, setDefaultSport] = useState('baseball')
 
   function applyTheme(theme: string) {
     if (theme === 'light') {
@@ -212,6 +226,14 @@ export default function Home() {
     setAuthStep('input')
     setAuthEmail('')
     setAuthError('')
+  }
+
+  const openAccountPanel = async () => {
+    setShowAccountPanel(true)
+    if (user) {
+      const { data } = await loadUserPreferences(user.id)
+      if (data?.favorite_teams?.length) setFavTeam(data.favorite_teams[0])
+    }
   }
 
   // Only items that cannot be expressed as pure CSS variables
@@ -456,9 +478,13 @@ export default function Home() {
             </button>
             {user ? (
               <div className="flex items-center gap-2">
-                <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                <button
+                  onClick={openAccountPanel}
+                  className="text-xs underline hover:opacity-70 transition-opacity"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
                   {user.email}
-                </span>
+                </button>
                 <button
                   onClick={handleSignOut}
                   className="text-xs underline hover:opacity-70 transition-opacity"
@@ -768,6 +794,254 @@ export default function Home() {
           </div>
         </div>
       )}
+      {/* ACCOUNT PANEL MODAL */}
+      {showAccountPanel && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={(e) => e.target === e.currentTarget && setShowAccountPanel(false)}
+        >
+          <div
+            className="rounded-2xl p-6 w-full mx-4 shadow-2xl border overflow-y-auto"
+            style={{
+              maxWidth: 400,
+              maxHeight: '90vh',
+              background: isDark ? 'var(--bg-primary)' : '#ffffff',
+              borderColor: 'var(--border-color)',
+              color: 'var(--text-primary)',
+              boxShadow: '0 25px 50px rgba(0,0,0,0.3)',
+            }}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-semibold">My Account</h2>
+              <button
+                onClick={() => setShowAccountPanel(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:opacity-70"
+                style={{ background: 'var(--bg-secondary)' }}
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+              </button>
+            </div>
+
+            {/* Section 1: Account Info */}
+            <div className="mb-5">
+              <div
+                className="text-[10px] font-semibold tracking-widest uppercase mb-2"
+                style={{ color: 'var(--text-secondary)' }}
+              >
+                Account Info
+              </div>
+              <div
+                className="rounded-xl px-3 py-2.5 flex flex-col gap-2"
+                style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)' }}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Email</span>
+                  <span className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>{user?.email}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Plan</span>
+                  <span
+                    className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                    style={{
+                      background: 'var(--bg-secondary)',
+                      color: 'var(--text-secondary)',
+                      border: '1px solid var(--border-color)',
+                    }}
+                  >
+                    Free
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Section 2: Default Sport & League */}
+            <div className="mb-5">
+              <div
+                className="text-[10px] font-semibold tracking-widest uppercase mb-2"
+                style={{ color: 'var(--text-secondary)' }}
+              >
+                Default Sport
+              </div>
+              <div className="grid grid-cols-4 gap-2 mb-3">
+                <button
+                  className="rounded-lg py-2 px-1 text-center"
+                  style={{ border: '1.5px solid var(--border-active)', backgroundColor: 'var(--brand-blue-bg)' }}
+                  onClick={() => {
+                    if (user) {
+                      const payload = { default_sport: 'baseball', favorite_leagues: ['mlb'] }
+                      console.log('[AccountPanel] upserting sport:', payload)
+                      upsertUserPreferences(user.id, payload).then(({ error }) => {
+                        if (error) console.error('[AccountPanel] upsert error:', error)
+                        else console.log('[AccountPanel] upsert success')
+                      })
+                    }
+                  }}
+                >
+                  <div className="text-base mb-0.5">⚾</div>
+                  <div className="text-[10px] font-semibold" style={{ color: 'var(--text-primary)' }}>Baseball</div>
+                </button>
+                {[
+                  { emoji: '🏀', label: 'Basketball' },
+                  { emoji: '🏎', label: 'Racing' },
+                  { emoji: '⚽', label: 'Soccer' },
+                ].map(({ emoji, label }) => (
+                  <div
+                    key={label}
+                    className="rounded-lg py-2 px-1 text-center opacity-50 cursor-not-allowed"
+                    style={{ border: '1.5px solid var(--border-color)', backgroundColor: 'var(--bg-secondary)' }}
+                  >
+                    <div className="text-base mb-0.5">{emoji}</div>
+                    <div className="text-[10px] font-semibold" style={{ color: 'var(--text-primary)' }}>{label}</div>
+                    <div className="text-[9px]" style={{ color: 'var(--text-secondary)' }}>Soon</div>
+                  </div>
+                ))}
+              </div>
+              {defaultSport === 'baseball' && (
+                <div>
+                  <div
+                    className="text-[10px] font-semibold tracking-widest uppercase mb-2"
+                    style={{ color: 'var(--text-secondary)' }}
+                  >
+                    League
+                  </div>
+                  <span
+                    className="inline-block text-xs font-semibold px-3 py-1 rounded-full"
+                    style={{ background: 'var(--accent)', color: '#fff' }}
+                  >
+                    MLB
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Section 3: Favorite Team */}
+            <div className="mb-5">
+              <div
+                className="text-[10px] font-semibold tracking-widest uppercase mb-2"
+                style={{ color: 'var(--text-secondary)' }}
+              >
+                Favorite Team
+              </div>
+              <select
+                value={favTeam}
+                onChange={(e) => {
+                  setFavTeam(e.target.value)
+                  if (user) upsertUserPreferences(user.id, { favorite_teams: e.target.value ? [e.target.value] : [] })
+                }}
+                className="w-full rounded-xl px-3 py-2.5 text-sm outline-none"
+                style={{
+                  background: 'var(--bg-secondary)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-primary)',
+                  colorScheme: isDark ? 'dark' : 'light',
+                }}
+              >
+                <option value="">— No preference —</option>
+                {MLB_TEAMS.map((team) => (
+                  <option key={team} value={team}>{team}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Section 4: Preferences */}
+            <div className="mb-5">
+              <div
+                className="text-[10px] font-semibold tracking-widest uppercase mb-2"
+                style={{ color: 'var(--text-secondary)' }}
+              >
+                Preferences
+              </div>
+              <div className="flex flex-col gap-2.5">
+                {/* Theme */}
+                <div className="flex items-center justify-between">
+                  <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Theme</span>
+                  <div className="flex gap-1.5">
+                    {[
+                      { label: 'Dark', active: isDark },
+                      { label: 'Light', active: !isDark },
+                    ].map(({ label, active }) => (
+                      <button
+                        key={label}
+                        onClick={() => (label === 'Dark' ? !isDark : isDark) && toggleTheme()}
+                        className="px-3 py-1 rounded-lg text-xs font-semibold transition-colors"
+                        style={
+                          active
+                            ? { background: 'var(--accent)', color: '#fff', border: '1px solid var(--accent)' }
+                            : { background: 'var(--bg-secondary)', color: 'var(--text-secondary)', border: '1px solid var(--border-color)' }
+                        }
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Language */}
+                <div className="flex items-center justify-between">
+                  <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Language</span>
+                  <div className="flex gap-1.5">
+                    {(['en', 'vi'] as const).map((lang) => (
+                      <button
+                        key={lang}
+                        onClick={() => handleLanguageChange(lang)}
+                        className="px-3 py-1 rounded-lg text-xs font-semibold transition-colors"
+                        style={
+                          activeLanguage === lang
+                            ? { background: 'var(--accent)', color: '#fff', border: '1px solid var(--accent)' }
+                            : { background: 'var(--bg-secondary)', color: 'var(--text-secondary)', border: '1px solid var(--border-color)' }
+                        }
+                      >
+                        {lang.toUpperCase()}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Timezone */}
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-xs flex-shrink-0" style={{ color: 'var(--text-secondary)' }}>Timezone</span>
+                  <select
+                    value={selectedTimezone}
+                    onChange={(e) => handleTimezoneChange(e.target.value)}
+                    className="flex-1 rounded-lg px-2 py-1.5 text-xs outline-none min-w-0"
+                    style={{
+                      background: 'var(--bg-secondary)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-primary)',
+                      colorScheme: isDark ? 'dark' : 'light',
+                    }}
+                  >
+                    <option value="auto">Auto-detect</option>
+                    <option value="UTC">UTC</option>
+                    <option value="America/New_York">ET (New York)</option>
+                    <option value="America/Chicago">CT (Chicago)</option>
+                    <option value="America/Denver">MT (Denver)</option>
+                    <option value="America/Los_Angeles">PT (Los Angeles)</option>
+                    <option value="Asia/Bangkok">GMT+7 (Bangkok)</option>
+                    <option value="Asia/Tokyo">JST (Tokyo)</option>
+                    <option value="Asia/Seoul">KST (Seoul)</option>
+                    <option value="Europe/London">GMT (London)</option>
+                    <option value="Europe/Paris">CET (Paris)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Section 5: Sign out */}
+            <button
+              onClick={() => { handleSignOut(); setShowAccountPanel(false) }}
+              className="w-full py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-80"
+              style={{ background: '#ef4444', color: '#fff' }}
+            >
+              Sign out
+            </button>
+          </div>
+        </div>
+      )}
+
     </main>
   )
 }

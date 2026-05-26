@@ -14,7 +14,9 @@ export async function upsertUserPreferences(userId: string, prefs: {
   timezone?: string
   language?: string
   widget_game_id?: string
-  favorite_team?: string
+  favorite_teams?: string[]
+  favorite_leagues?: string[]
+  default_sport?: string
 }) {
   return supabase.from('user_preferences').upsert({
     user_id: userId,
