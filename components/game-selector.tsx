@@ -47,14 +47,19 @@ declare global {
 
 function WidgetWrapper({
   game: initialGame,
+  games,
+  user,
   pipWindow,
 }: {
   game: MlbGame
+  games: MlbGame[]
+  user: User | null
   pipWindow: Window
 }) {
   const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem('widget_collapsed') === 'true'
   )
+  const [currentGame, setCurrentGame] = useState(initialGame)
   const [score, setScore] = useState({
     away: initialGame.teams.away.score,
     home: initialGame.teams.home.score,
@@ -67,13 +72,17 @@ function WidgetWrapper({
       ? `${ls.inningState} ${ls.currentInningOrdinal}`
       : ''
   })
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [hoveredItem, setHoveredItem] = useState<number | null>(null)
+  const headerTriggerRef = useRef<HTMLDivElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
 
   // Poll score every 30s regardless of collapsed state
   useEffect(() => {
     const poll = async () => {
       try {
         const url = encodeURIComponent(
-          `https://statsapi.mlb.com/api/v1/schedule?sportId=1&gamePk=${initialGame.gamePk}`
+          `https://statsapi.mlb.com/api/v1/schedule?sportId=1&gamePk=${currentGame.gamePk}`
         )
         const res = await fetch(`/api/scores?url=${url}`)
         if (!res.ok) return
@@ -90,7 +99,38 @@ function WidgetWrapper({
     }
     const id = setInterval(poll, 30_000)
     return () => clearInterval(id)
-  }, [initialGame.gamePk])
+  }, [currentGame.gamePk])
+
+  // Close dropdown on click outside (works in PiP via ownerDocument)
+  useEffect(() => {
+    if (!dropdownOpen) return
+    function handleOutsideClick(e: MouseEvent) {
+      const target = e.target as Node
+      if (
+        dropdownRef.current?.contains(target) ||
+        headerTriggerRef.current?.contains(target)
+      ) return
+      setDropdownOpen(false)
+    }
+    const doc = dropdownRef.current?.ownerDocument ?? document
+    doc.addEventListener('mousedown', handleOutsideClick)
+    return () => doc.removeEventListener('mousedown', handleOutsideClick)
+  }, [dropdownOpen])
+
+  function handleGameChange(newGameId: number) {
+    const newGame = games.find(g => g.gamePk === newGameId)
+    if (!newGame) return
+    setCurrentGame(newGame)
+    setScore({ away: newGame.teams.away.score, home: newGame.teams.home.score })
+    setGameState(newGame.status.abstractGameState)
+    setGameDetailedState(newGame.status.detailedState)
+    const ls = newGame.linescore
+    setInningLabel(ls?.inningState && ls?.currentInningOrdinal
+      ? `${ls.inningState} ${ls.currentInningOrdinal}`
+      : '')
+    localStorage.setItem('sidewatch_widget_game_id', String(newGameId))
+    if (user) upsertUserPreferences(user.id, { widget_game_id: String(newGameId) })
+  }
 
   // FIX 6: collapsed width 320px, height 72px
   const toggleCollapsed = useCallback(() => {
@@ -102,155 +142,271 @@ function WidgetWrapper({
     } catch {}
   }, [collapsed, pipWindow])
 
-  const awayAbbr = getTeamAbbr(initialGame.teams.away.team.name)
-  const homeAbbr = getTeamAbbr(initialGame.teams.home.team.name)
+  const awayAbbr = getTeamAbbr(currentGame.teams.away.team.name)
+  const homeAbbr = getTeamAbbr(currentGame.teams.home.team.name)
   const isLive = gameState === 'Live'
   const isFinal = gameState === 'Final'
   const isDelayed = /delay|suspend/i.test(gameDetailedState) || gameDetailedState.toLowerCase() === 'postponed'
 
+  const sortedGames = [...games].sort((a, b) => statePriority(a) - statePriority(b))
+
   return (
-    <div
-      style={{
-        width: '100%',
-        height: collapsed ? '72px' : '420px',   // FIX 6
-        overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column',
-        transition: 'height 200ms ease-in-out',
-        background: 'var(--bg-widget)',          // CSS var
-        color: 'var(--text-primary)',            // CSS var
-        fontFamily: 'system-ui, sans-serif',
-      }}
-    >
-      {/* Header bar — keep brand blue, no variable */}
+    <div style={{ position: 'relative', fontFamily: 'system-ui, sans-serif' }}>
       <div
         style={{
+          width: '100%',
+          height: collapsed ? '72px' : '420px',
+          overflow: 'hidden',
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0 10px',
-          height: collapsed ? '72px' : '36px',  // FIX 6
-          background: '#1A56DB',
-          flexShrink: 0,
+          flexDirection: 'column',
+          transition: 'height 200ms ease-in-out',
+          background: 'var(--bg-widget)',
+          color: 'var(--text-primary)',
         }}
       >
-        {/* FIX 6: score row — nowrap + flexShrink on every child */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-          overflow: 'hidden',
-          width: '100%',
-          whiteSpace: 'nowrap',
-        }}>
-          {isLive && !isDelayed && (
-            <span
-              style={{
-                width: '7px',
-                height: '7px',
-                borderRadius: '50%',
-                background: '#ff4444',
-                display: 'inline-block',
-                boxShadow: '0 0 4px #ff4444',
-                flexShrink: 0,
-              }}
-            />
-          )}
-          <span style={{
-            fontWeight: 700,
-            fontSize: collapsed ? '14px' : '13px',
-            color: '#fff',
-            whiteSpace: 'nowrap',
-            flexShrink: 0,
-          }}>
-            {awayAbbr} {score.away ?? '–'} — {homeAbbr} {score.home ?? '–'}
-          </span>
-          {inningLabel && isLive && !isDelayed && (
-            <span style={{ fontSize: '10px', color: '#bfdbfe', whiteSpace: 'nowrap', flexShrink: 0 }}>
-              {inningLabel}
-            </span>
-          )}
-          {isDelayed && (
-            <span
-              style={{
-                fontSize: '9px',
-                fontWeight: 700,
-                letterSpacing: '0.06em',
-                background: '#B45309',
-                color: '#fff',
-                padding: '1px 4px',
-                borderRadius: '3px',
-                flexShrink: 0,
-              }}
-            >
-              DELAYED
-            </span>
-          )}
-          {isLive && !isDelayed && (
-            <span
-              style={{
-                fontSize: '9px',
-                fontWeight: 700,
-                letterSpacing: '0.06em',
-                background: '#A32D2D',
-                color: '#fff',
-                padding: '1px 4px',
-                borderRadius: '3px',
-                flexShrink: 0,
-              }}
-            >
-              LIVE
-            </span>
-          )}
-          {isFinal && !isDelayed && (
-            <span
-              style={{
-                fontSize: '9px',
-                fontWeight: 700,
-                letterSpacing: '0.06em',
-                background: '#4b5563',
-                color: '#fff',
-                padding: '1px 4px',
-                borderRadius: '3px',
-                flexShrink: 0,
-              }}
-            >
-              FINAL
-            </span>
-          )}
-        </div>
-        <button
-          onClick={toggleCollapsed}
+        {/* Header bar — keep brand blue, no variable */}
+        <div
           style={{
-            background: 'none',
-            border: 'none',
-            color: '#fff',
-            cursor: 'pointer',
-            fontSize: '16px',
-            lineHeight: 1,
-            padding: '4px',
-            opacity: 0.9,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '0 10px',
+            height: collapsed ? '72px' : '36px',
+            background: '#1A56DB',
             flexShrink: 0,
           }}
-          title={collapsed ? 'Expand' : 'Collapse'}
         >
-          {collapsed ? '⊞' : '⊟'}
-        </button>
+          {/* Clickable score area — toggles game dropdown */}
+          <div
+            ref={headerTriggerRef}
+            onClick={() => games.length > 1 && !collapsed && setDropdownOpen(v => !v)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              flex: 1,
+              overflow: 'hidden',
+              whiteSpace: 'nowrap',
+              cursor: games.length > 1 && !collapsed ? 'pointer' : 'default',
+            }}
+          >
+            {isLive && !isDelayed && (
+              <span
+                style={{
+                  width: '7px',
+                  height: '7px',
+                  borderRadius: '50%',
+                  background: '#ff4444',
+                  display: 'inline-block',
+                  boxShadow: '0 0 4px #ff4444',
+                  flexShrink: 0,
+                }}
+              />
+            )}
+            <span style={{
+              fontWeight: 700,
+              fontSize: collapsed ? '14px' : '13px',
+              color: '#fff',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
+            }}>
+              {awayAbbr} {score.away ?? '–'} — {homeAbbr} {score.home ?? '–'}
+            </span>
+            {inningLabel && isLive && !isDelayed && (
+              <span style={{ fontSize: '10px', color: '#bfdbfe', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                {inningLabel}
+              </span>
+            )}
+            {isDelayed && (
+              <span
+                style={{
+                  fontSize: '9px',
+                  fontWeight: 700,
+                  letterSpacing: '0.06em',
+                  background: 'rgba(255,255,255,0.15)',
+                  color: '#ffffff',
+                  border: '1px solid rgba(255,255,255,0.3)',
+                  padding: '1px 4px',
+                  borderRadius: '3px',
+                  flexShrink: 0,
+                }}
+              >
+                DELAYED
+              </span>
+            )}
+            {isLive && !isDelayed && (
+              <span
+                style={{
+                  fontSize: '9px',
+                  fontWeight: 700,
+                  letterSpacing: '0.06em',
+                  background: 'rgba(255,255,255,0.15)',
+                  color: '#ffffff',
+                  border: '1px solid rgba(255,255,255,0.3)',
+                  padding: '1px 4px',
+                  borderRadius: '3px',
+                  flexShrink: 0,
+                }}
+              >
+                LIVE
+              </span>
+            )}
+            {isFinal && !isDelayed && (
+              <span
+                style={{
+                  fontSize: '9px',
+                  fontWeight: 700,
+                  letterSpacing: '0.06em',
+                  background: 'rgba(255,255,255,0.15)',
+                  color: '#ffffff',
+                  border: '1px solid rgba(255,255,255,0.3)',
+                  padding: '1px 4px',
+                  borderRadius: '3px',
+                  flexShrink: 0,
+                }}
+              >
+                FINAL
+              </span>
+            )}
+            {/* Chevron — only shown when multiple games and widget is expanded */}
+            {games.length > 1 && !collapsed && (
+              <span style={{ marginLeft: 'auto', color: '#bfdbfe', fontSize: '10px', flexShrink: 0, paddingRight: '4px' }}>
+                {dropdownOpen ? '▲' : '▼'}
+              </span>
+            )}
+          </div>
+          <button
+            onClick={toggleCollapsed}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#fff',
+              cursor: 'pointer',
+              fontSize: '16px',
+              lineHeight: 1,
+              padding: '4px',
+              opacity: 0.9,
+              flexShrink: 0,
+            }}
+            title={collapsed ? 'Expand' : 'Collapse'}
+          >
+            {collapsed ? '⊞' : '⊟'}
+          </button>
+        </div>
+
+        {/* Scrollable body — flex:1 + minHeight:0 so only this div scrolls */}
+        {!collapsed && (
+          <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+            <BoxScore
+              key={currentGame.gamePk}
+              gameId={currentGame.gamePk}
+              initialStatus={currentGame.status.abstractGameState}
+              venueFallback={currentGame.venue?.name ?? ''}
+              detailedStateFallback={gameDetailedState}
+            />
+            <RedditFeed
+              awayTeam={currentGame.teams.away.team.name}
+              homeTeam={currentGame.teams.home.team.name}
+            />
+          </div>
+        )}
       </div>
 
-      {/* Scrollable body — flex:1 + minHeight:0 so only this div scrolls */}
-      {!collapsed && (
-        <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-          <BoxScore
-            gameId={initialGame.gamePk}
-            initialStatus={initialGame.status.abstractGameState}
-            venueFallback={initialGame.venue?.name ?? ''}
-            detailedStateFallback={gameDetailedState}
-          />
-          <RedditFeed
-            awayTeam={initialGame.teams.away.team.name}
-            homeTeam={initialGame.teams.home.team.name}
-          />
+      {/* Overlay — dims widget content behind the dropdown */}
+      {dropdownOpen && games.length > 1 && (
+        <div
+          onClick={() => setDropdownOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.5)',
+            zIndex: 998,
+          }}
+        />
+      )}
+
+      {/* Game switch dropdown — sibling of overflow:hidden div so it's never clipped */}
+      {dropdownOpen && games.length > 1 && (
+        <div
+          ref={dropdownRef}
+          style={{
+            position: 'absolute',
+            top: '36px',
+            left: 0,
+            right: 0,
+            zIndex: 999,
+            background: 'var(--bg-secondary)',
+            border: '1px solid var(--border-color)',
+            maxHeight: '200px',
+            overflowY: 'auto',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+          }}
+        >
+          {sortedGames.map((g) => {
+            const isSelected = g.gamePk === currentGame.gamePk
+            const gDelayed = isDelayedOrSuspended(g)
+            const gState = g.status.abstractGameState
+            const gAway = getTeamAbbr(g.teams.away.team.name)
+            const gHome = getTeamAbbr(g.teams.home.team.name)
+            const awayScore = g.teams.away.score
+            const homeScore = g.teams.home.score
+            const hasScore = gState === 'Live' || gState === 'Final' || gDelayed
+            const isHovered = hoveredItem === g.gamePk
+
+            return (
+              <div
+                key={g.gamePk}
+                onMouseEnter={() => setHoveredItem(g.gamePk)}
+                onMouseLeave={() => setHoveredItem(null)}
+                onClick={() => {
+                  setDropdownOpen(false)
+                  if (!isSelected) handleGameChange(g.gamePk)
+                }}
+                style={{
+                  padding: '7px 10px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  fontSize: '11px',
+                  background: isSelected
+                    ? 'var(--accent)'
+                    : isHovered
+                    ? 'var(--bg-surface-2)'
+                    : 'transparent',
+                  color: '#ffffff',
+                  borderBottom: '1px solid var(--border-color)',
+                }}
+              >
+                <span style={{ fontWeight: 600 }}>{gAway} vs {gHome}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  {hasScore && (
+                    <span style={{ fontSize: '10px', fontFamily: 'monospace' }}>
+                      {awayScore ?? '–'}–{homeScore ?? '–'}
+                    </span>
+                  )}
+                  <span
+                    style={{
+                      fontSize: '9px',
+                      fontWeight: 700,
+                      padding: '1px 4px',
+                      borderRadius: '3px',
+                      color: '#fff',
+                      background: gDelayed
+                        ? '#B45309'
+                        : gState === 'Live'
+                        ? '#A32D2D'
+                        : gState === 'Final'
+                        ? '#4b5563'
+                        : '#374151',
+                    }}
+                  >
+                    {gDelayed ? 'DELAYED' : gState === 'Live' ? 'LIVE' : gState === 'Final' ? 'FINAL' : 'UPCOMING'}
+                  </span>
+                </div>
+              </div>
+            )
+          })}
         </div>
       )}
     </div>
@@ -308,7 +464,7 @@ async function checkLock(): Promise<boolean> {
   }
 }
 
-async function launchPiPWidget(game: MlbGame) {
+async function launchPiPWidget(game: MlbGame, games: MlbGame[], user: User | null) {
   if (!window.documentPictureInPicture) {
     alert('Document Picture-in-Picture is not supported in this browser.')
     return
@@ -367,7 +523,7 @@ async function launchPiPWidget(game: MlbGame) {
   window.addEventListener('beforeunload', cleanup, { once: true })
 
   root = ReactDOM.createRoot(container)
-  root.render(<WidgetWrapper game={game} pipWindow={pipWindow} />)
+  root.render(<WidgetWrapper game={game} games={games} user={user} pipWindow={pipWindow} />)
 }
 
 /* ─── GameSelector ──────────────────────────────────────────────────── */
@@ -482,7 +638,7 @@ export default function GameSelector({ user, savedGameId }: GameSelectorProps) {
       upsertUserPreferences(user.id, { widget_game_id: String(game.gamePk) })
     }
     try {
-      await launchPiPWidget(game)
+      await launchPiPWidget(game, games, user)
     } finally {
       setLaunching(null)
     }
