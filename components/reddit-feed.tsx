@@ -77,7 +77,9 @@ function getThumbnail(post: RedditPost): string | null {
 }
 
 async function fetchSubreddit(sub: string): Promise<RedditPost[]> {
-  const res = await fetch(`/api/reddit?subreddit=${sub}&limit=50`)
+  const res = await fetch(`https://old.reddit.com/r/${sub}/new.json?limit=50`, {
+    headers: { Accept: 'application/json' },
+  })
   if (!res.ok) throw new Error(`Reddit ${sub} ${res.status}`)
   const json = await res.json()
   return (json.data?.children ?? []).map((c: { data: RedditPost }) => c.data)
@@ -208,7 +210,17 @@ export default function RedditFeed({
       </div>
 
       {visible.length === 0 && label !== 'LOADING FEED...' && (
-        <div style={s.empty}>No posts found</div>
+        <div style={s.empty}>
+          <span style={s.emptyText}>Reddit feed unavailable</span>
+          <a
+            href="https://reddit.com/r/baseball"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={s.emptyLink}
+          >
+            View r/baseball on Reddit ↗
+          </a>
+        </div>
       )}
 
       {visible.map((post) => {
@@ -273,7 +285,22 @@ const s: Record<string, React.CSSProperties> = {
     letterSpacing: '0.08em',
     color: '#60a5fa',
   },
-  empty: { padding: '12px 8px', fontSize: '11px', color: 'var(--text-muted)' },
+  empty: {
+    padding: '12px 8px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px',
+  },
+  emptyText: {
+    fontSize: '11px',
+    color: 'var(--text-muted)',
+  },
+  emptyLink: {
+    fontSize: '11px',
+    color: '#60a5fa',
+    textDecoration: 'none',
+    display: 'inline-block',
+  },
   postLink: {
     display: 'flex',
     gap: '8px',
