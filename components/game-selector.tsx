@@ -6,6 +6,8 @@ import BoxScore from './box-score'
 import RedditFeed from './reddit-feed'
 import { getTeamAbbr } from '@/lib/utils'
 import { getTodayString, getYesterdayString, formatGameTime, shouldFallbackToYesterday } from '@/lib/locale'
+import { upsertUserPreferences } from '@/lib/supabase'
+import type { User } from '@supabase/supabase-js'
 
 /* ─── Types ─────────────────────────────────────────────────────────── */
 
@@ -415,12 +417,21 @@ async function fetchGames(date: string): Promise<MlbGame[]> {
   return unique
 }
 
-export default function GameSelector() {
+interface GameSelectorProps {
+  user: User | null
+  savedGameId: string | null
+}
+
+export default function GameSelector({ user, savedGameId }: GameSelectorProps) {
   const [games, setGames] = useState<MlbGame[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [heading, setHeading] = useState('Today\'s Games — MLB')
   const [launching, setLaunching] = useState<number | null>(null)
+  const [highlightedGameId, setHighlightedGameId] = useState<number | null>(
+    savedGameId ? parseInt(savedGameId) : null
+  )
+  const gameRefs = useRef<Map<number, HTMLDivElement>>(new Map())
 
   useEffect(() => {
     ;(async () => {
@@ -451,8 +462,25 @@ export default function GameSelector() {
     })()
   }, [])
 
+  // Sync highlighted game when DB prefs arrive after initial render
+  useEffect(() => {
+    if (savedGameId) setHighlightedGameId(parseInt(savedGameId))
+  }, [savedGameId])
+
+  // Scroll to last-watched game once games are loaded
+  useEffect(() => {
+    if (!highlightedGameId || games.length === 0) return
+    const el = gameRefs.current.get(highlightedGameId)
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }, [games, highlightedGameId])
+
   const handleLaunch = async (game: MlbGame) => {
     setLaunching(game.gamePk)
+    setHighlightedGameId(game.gamePk)
+    localStorage.setItem('sidewatch_widget_game_id', String(game.gamePk))
+    if (user) {
+      upsertUserPreferences(user.id, { widget_game_id: String(game.gamePk) })
+    }
     try {
       await launchPiPWidget(game)
     } finally {
@@ -518,6 +546,10 @@ export default function GameSelector() {
           return (
             <div
               key={game.gamePk}
+              ref={(el) => {
+                if (el) gameRefs.current.set(game.gamePk, el)
+                else gameRefs.current.delete(game.gamePk)
+              }}
               className={[
                 'rounded-lg border p-4 flex flex-col gap-3 transition-colors',
                 (isLive && !isDelayed) || isDelayed ? 'col-span-1 sm:col-span-2 border-l-4' : '',
@@ -529,6 +561,9 @@ export default function GameSelector() {
                   : isDelayed
                   ? '#d97706'
                   : 'var(--border-primary)',
+                ...(highlightedGameId === game.gamePk
+                  ? { boxShadow: '0 0 0 2px #1a56db' }
+                  : {}),
               }}
             >
               {/* Teams + Score */}
@@ -595,6 +630,14 @@ export default function GameSelector() {
 
               {/* Status pill + inning */}
               <div className="flex items-center gap-2">
+                {highlightedGameId === game.gamePk && (
+                  <span
+                    className="text-[9px] font-semibold px-1.5 py-0.5 rounded"
+                    style={{ background: 'var(--brand-blue-bg)', color: '#60a5fa', border: '1px solid #1a56db55' }}
+                  >
+                    Last watched
+                  </span>
+                )}
                 {isDoubleHeader && (
                   <span className="text-xs font-semibold bg-slate-700 text-slate-300 px-2 py-0.5 rounded">
                     Game {game.gameNumber}

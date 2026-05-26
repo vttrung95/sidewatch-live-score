@@ -8,3 +8,21 @@ export function createClient() {
 }
 
 export const supabase = createClient()
+
+export async function upsertUserPreferences(userId: string, prefs: {
+  theme?: string
+  timezone?: string
+  language?: string
+  widget_game_id?: string
+  favorite_team?: string
+}) {
+  return supabase.from('user_preferences').upsert({
+    user_id: userId,
+    ...prefs,
+    updated_at: new Date().toISOString()
+  }, { onConflict: 'user_id' })
+}
+
+export async function loadUserPreferences(userId: string) {
+  return supabase.from('user_preferences').select('*').eq('user_id', userId).single()
+}

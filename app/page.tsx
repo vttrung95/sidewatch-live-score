@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
+import { useState, useEffect, useRef } from 'react'
+import { supabase, upsertUserPreferences, loadUserPreferences } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
 import { Sun, Moon, MessageSquare } from 'lucide-react'
 import GameSelector from '@/components/game-selector'
@@ -19,26 +19,64 @@ export default function Home() {
   const [submitError, setSubmitError] = useState('')
   const [timezoneLabel, setTimezoneLabel] = useState('...')
   const [user, setUser] = useState<User | null>(null)
+  const [widgetGameId, setWidgetGameId] = useState<string | null>(null)
   const [showAuthModal, setShowAuthModal] = useState(false)
+  const syncedUserIdRef = useRef<string | null>(null)
   const [authEmail, setAuthEmail] = useState('')
   const [authStep, setAuthStep] = useState<'input' | 'sent' | 'loading'>('input')
   const [authError, setAuthError] = useState('')
 
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('sidewatch_theme')
-    if (savedTheme === 'light') {
+  function applyTheme(theme: string) {
+    if (theme === 'light') {
       document.documentElement.classList.add('light')
       document.body.style.backgroundColor = '#f8fafc'
+      localStorage.setItem('sidewatch_theme', 'light')
       setIsDark(false)
     } else {
       document.documentElement.classList.remove('light')
       document.body.style.backgroundColor = '#0f1824'
-      // isDark already true by default
+      localStorage.setItem('sidewatch_theme', 'dark')
+      setIsDark(true)
     }
+  }
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('sidewatch_theme') ?? 'dark'
+    applyTheme(savedTheme)
     if (!localStorage.getItem('sidewatch_sport')) {
       localStorage.setItem('sidewatch_sport', 'mlb')
     }
+    const savedGameId = localStorage.getItem('sidewatch_widget_game_id')
+    if (savedGameId) setWidgetGameId(savedGameId)
   }, [])
+
+  // Sync preferences with DB on login
+  useEffect(() => {
+    if (!user) {
+      syncedUserIdRef.current = null
+      return
+    }
+    if (syncedUserIdRef.current === user.id) return
+    syncedUserIdRef.current = user.id
+
+    ;(async () => {
+      const { data, error } = await loadUserPreferences(user.id)
+      if (data && !error) {
+        if (data.theme) applyTheme(data.theme)
+        if (data.widget_game_id) setWidgetGameId(data.widget_game_id)
+      } else {
+        // New user — push current local state to DB
+        const currentTheme = localStorage.getItem('sidewatch_theme') ?? 'dark'
+        const currentGameId = localStorage.getItem('sidewatch_widget_game_id')
+        await upsertUserPreferences(user.id, {
+          theme: currentTheme,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          language: 'en',
+          ...(currentGameId ? { widget_game_id: currentGameId } : {}),
+        })
+      }
+    })()
+  }, [user])
 
   useEffect(() => {
     setTimezoneLabel(getTimezoneLabel())
@@ -57,19 +95,11 @@ export default function Home() {
   }, [])
 
   function toggleTheme() {
-    const newIsDark = !isDark
-    if (newIsDark) {
-      // switching to dark — remove light class
-      document.documentElement.classList.remove('light')
-      document.body.style.backgroundColor = '#0f1824'
-      localStorage.setItem('sidewatch_theme', 'dark')
-    } else {
-      // switching to light — add light class
-      document.documentElement.classList.add('light')
-      document.body.style.backgroundColor = '#f8fafc'
-      localStorage.setItem('sidewatch_theme', 'light')
+    const newTheme = isDark ? 'light' : 'dark'
+    applyTheme(newTheme)
+    if (user) {
+      upsertUserPreferences(user.id, { theme: newTheme })
     }
-    setIsDark(newIsDark)
   }
 
   async function handleFeedbackSubmit() {
@@ -352,7 +382,7 @@ export default function Home() {
 
       {/* SECTION 4: TODAY'S GAMES */}
       <div className="max-w-3xl mx-auto px-4 sm:px-8 mt-6">
-        <GameSelector />
+        <GameSelector user={user} savedGameId={widgetGameId} />
       </div>
 
       {/* SECTION 5: FOOTER */}
