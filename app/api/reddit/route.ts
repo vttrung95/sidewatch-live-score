@@ -6,13 +6,11 @@ export async function GET(request: NextRequest) {
   const limit = searchParams.get('limit') ?? '10'
 
   const res = await fetch(
-    `https://www.reddit.com/r/${subreddit}/new.json?limit=${limit}`,
+    `https://www.reddit.com/r/${subreddit}/new.rss?limit=${limit}`,
     {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        'Accept': 'application/json, text/plain, */*',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Cache-Control': 'no-cache',
+        'User-Agent': 'Sidewatch/1.0',
+        'Accept': 'application/rss+xml, application/xml, text/xml',
       },
       next: { revalidate: 60 },
     }
@@ -22,6 +20,26 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Reddit fetch failed' }, { status: res.status })
   }
 
-  const data = await res.json()
-  return NextResponse.json(data)
+  const xml = await res.text()
+
+  const entries = [...xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)]
+  const children = entries.map(([, entry]) => {
+    const title = entry.match(/<title[^>]*>([\s\S]*?)<\/title>/)?.[1]?.replace(/<!\[CDATA\[|\]\]>/g, '').trim() ?? ''
+    const link = entry.match(/<link[^>]*href="([^"]+)"/)?.[1] ?? ''
+    const score = parseInt(entry.match(/score: (\d+)/)?.[1] ?? '0')
+    const comments = parseInt(entry.match(/comments: (\d+)/)?.[1] ?? '0')
+
+    return {
+      data: {
+        title,
+        url: link,
+        permalink: link,
+        score,
+        num_comments: comments,
+        thumbnail: '',
+      }
+    }
+  })
+
+  return NextResponse.json({ data: { children } })
 }
