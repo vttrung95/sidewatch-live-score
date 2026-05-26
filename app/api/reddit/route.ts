@@ -9,7 +9,10 @@ export async function GET(request: NextRequest) {
     `https://www.reddit.com/r/${subreddit}/new.json?limit=${limit}`,
     {
       headers: {
-        'User-Agent': 'Sidewatch/1.0 (sports widget)',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Cache-Control': 'no-cache',
       },
       next: { revalidate: 60 },
     }
