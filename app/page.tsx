@@ -451,7 +451,7 @@ export default function Home() {
 
       {/* SECTION 4: TODAY'S GAMES */}
       <div className="max-w-3xl mx-auto px-4 sm:px-8 mt-6">
-        <GameSelector user={user} savedGameId={widgetGameId} />
+        <GameSelector user={user} savedGameId={widgetGameId} favoriteTeam={favTeam} />
       </div>
 
       {/* SECTION 5: FOOTER */}

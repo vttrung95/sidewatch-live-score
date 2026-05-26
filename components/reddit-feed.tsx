@@ -85,15 +85,23 @@ async function fetchSubreddit(sub: string): Promise<RedditPost[]> {
   return (json.data?.children ?? []).map((c: { data: RedditPost }) => c.data)
 }
 
+function sortTier(p: RedditPost): number {
+  if (isGameKeyword(p.title)) return 0
+  if (p.is_video || p.post_hint === 'image') return 1
+  return 2
+}
+
 function filterAndSort(
   posts: RedditPost[],
   teamPostIds: Set<string>,
   awayTeam: string,
   homeTeam: string,
+  isLive: boolean,
 ): RedditPost[] {
+  const scoreMin = isLive ? 1 : 10
   return posts
     .filter((p) => {
-      if (excludePost(p.title) || p.score < 10) return false
+      if (excludePost(p.title) || p.score < scoreMin) return false
       // Team-subreddit posts are always on-topic
       if (teamPostIds.has(p.id)) return true
       // r/baseball posts: keep only those relevant to this matchup
@@ -101,19 +109,17 @@ function filterAndSort(
       if (isGameKeyword(p.title)) return true
       return false
     })
-    .sort((a, b) => {
-      const aHigh = a.is_video || a.post_hint === 'image' ? 1 : 0
-      const bHigh = b.is_video || b.post_hint === 'image' ? 1 : 0
-      return bHigh - aHigh || b.score - a.score
-    })
+    .sort((a, b) => sortTier(a) - sortTier(b) || b.score - a.score)
 }
 
 export default function RedditFeed({
   awayTeam,
   homeTeam,
+  isLive,
 }: {
   awayTeam: string
   homeTeam: string
+  isLive: boolean
 }) {
   const [posts, setPosts] = useState<RedditPost[]>([])
   const [visibleCount, setVisibleCount] = useState(5)
@@ -121,11 +127,8 @@ export default function RedditFeed({
   const retryRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const retryCountRef = useRef(0)
 
-  // Home team drives the subreddit (they get the "home crowd" feed);
-  // fall back to away team if home team doesn't have a mapping.
-  const teamSub = getTeamSubreddit(homeTeam) !== 'baseball'
-    ? getTeamSubreddit(homeTeam)
-    : getTeamSubreddit(awayTeam)
+  const homeSub = getTeamSubreddit(homeTeam)
+  const awaySub = getTeamSubreddit(awayTeam)
 
   // Per-game cache so different matchups don't bleed into each other.
   const cacheKey = `sidewatch_reddit_${awayTeam.replace(/\s+/g, '_')}_vs_${homeTeam.replace(/\s+/g, '_')}`
@@ -151,26 +154,33 @@ export default function RedditFeed({
 
     const attempt = async () => {
       try {
-        const [baseballResult, teamResult] = await Promise.allSettled([
+        const [baseballResult, homeResult, awayResult] = await Promise.allSettled([
           fetchSubreddit('baseball'),
-          teamSub !== 'baseball' ? fetchSubreddit(teamSub) : Promise.resolve<RedditPost[]>([]),
+          homeSub !== 'baseball' ? fetchSubreddit(homeSub) : Promise.resolve<RedditPost[]>([]),
+          awaySub !== 'baseball' && awaySub !== homeSub
+            ? fetchSubreddit(awaySub)
+            : Promise.resolve<RedditPost[]>([]),
         ])
 
         const baseballPosts = baseballResult.status === 'fulfilled' ? baseballResult.value : []
-        const teamSubPosts  = teamResult.status  === 'fulfilled' ? teamResult.value  : []
+        const homeSubPosts  = homeResult.status   === 'fulfilled' ? homeResult.value   : []
+        const awaySubPosts  = awayResult.status   === 'fulfilled' ? awayResult.value   : []
 
-        // Track which post IDs came from the team subreddit so the filter
+        // Track which post IDs came from either team subreddit so the filter
         // can keep them unconditionally (they're always on-topic).
-        const teamPostIds = new Set(teamSubPosts.map((p) => p.id))
+        const teamPostIds = new Set([
+          ...homeSubPosts.map((p) => p.id),
+          ...awaySubPosts.map((p) => p.id),
+        ])
 
-        // Merge: team subreddit first so it wins deduplication
+        // Merge: team subreddits first so they win deduplication
         const seen = new Set<string>()
         const merged: RedditPost[] = []
-        for (const p of [...teamSubPosts, ...baseballPosts]) {
+        for (const p of [...homeSubPosts, ...awaySubPosts, ...baseballPosts]) {
           if (!seen.has(p.id)) { seen.add(p.id); merged.push(p) }
         }
 
-        const filtered = filterAndSort(merged, teamPostIds, awayTeam, homeTeam)
+        const filtered = filterAndSort(merged, teamPostIds, awayTeam, homeTeam, isLive)
 
         const hasGameThread = merged.some((p) =>
           p.title.toLowerCase().includes('game thread')
@@ -191,7 +201,7 @@ export default function RedditFeed({
     }
 
     attempt()
-  }, [teamSub, cacheKey, awayTeam, homeTeam, loadCache])
+  }, [homeSub, awaySub, cacheKey, awayTeam, homeTeam, isLive, loadCache])
 
   useEffect(() => {
     setVisibleCount(5)   // reset pagination whenever game/fetch changes

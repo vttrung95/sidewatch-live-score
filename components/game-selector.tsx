@@ -307,6 +307,7 @@ function WidgetWrapper({
             <RedditFeed
               awayTeam={currentGame.teams.away.team.name}
               homeTeam={currentGame.teams.home.team.name}
+              isLive={gameState === 'Live'}
             />
           </div>
         )}
@@ -545,8 +546,26 @@ function isActive(g: MlbGame) {
   return s === 'Live' || s === 'Final' || isDelayedOrSuspended(g)
 }
 
-function sortGames(games: MlbGame[]): MlbGame[] {
-  return [...games].sort((a, b) => statePriority(a) - statePriority(b))
+function isFavoriteGame(g: MlbGame, favoriteTeam: string): boolean {
+  const fav = favoriteTeam.toLowerCase()
+  return (
+    g.teams.away.team.name.toLowerCase().includes(fav) ||
+    g.teams.home.team.name.toLowerCase().includes(fav)
+  )
+}
+
+function sortGames(games: MlbGame[], favoriteTeam?: string): MlbGame[] {
+  return [...games].sort((a, b) => {
+    const pa = statePriority(a)
+    const pb = statePriority(b)
+    if (pa !== pb) return pa - pb
+    if (favoriteTeam) {
+      const fa = isFavoriteGame(a, favoriteTeam) ? 0 : 1
+      const fb = isFavoriteGame(b, favoriteTeam) ? 0 : 1
+      return fa - fb
+    }
+    return 0
+  })
 }
 
 async function fetchGames(date: string): Promise<MlbGame[]> {
@@ -576,9 +595,10 @@ async function fetchGames(date: string): Promise<MlbGame[]> {
 interface GameSelectorProps {
   user: User | null
   savedGameId: string | null
+  favoriteTeam?: string
 }
 
-export default function GameSelector({ user, savedGameId }: GameSelectorProps) {
+export default function GameSelector({ user, savedGameId, favoriteTeam }: GameSelectorProps) {
   const [games, setGames] = useState<MlbGame[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -609,14 +629,14 @@ export default function GameSelector({ user, savedGameId }: GameSelectorProps) {
         }
 
         const unique = Array.from(new Map(games.map((g) => [g.gamePk, g])).values())
-        setGames(sortGames(unique))
+        setGames(sortGames(unique, favoriteTeam))
       } catch {
         setError('Failed to load games. Please try again.')
       } finally {
         setLoading(false)
       }
     })()
-  }, [])
+  }, [favoriteTeam])
 
   // Sync highlighted game when DB prefs arrive after initial render
   useEffect(() => {
