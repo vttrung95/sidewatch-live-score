@@ -308,6 +308,8 @@ function WidgetWrapper({
               awayTeam={currentGame.teams.away.team.name}
               homeTeam={currentGame.teams.home.team.name}
               isLive={gameState === 'Live'}
+              gamePk={currentGame.gamePk}
+              gameDate={currentGame.officialDate ?? currentGame.gameDate ?? new Date().toISOString().slice(0, 10)}
             />
           </div>
         )}
@@ -336,8 +338,8 @@ function WidgetWrapper({
             left: 0,
             right: 0,
             zIndex: 999,
-            background: 'var(--bg-secondary)',
-            border: '1px solid var(--border-color)',
+            background: 'var(--bg-surface-2)',
+            border: '1px solid var(--border-primary)',
             maxHeight: '200px',
             overflowY: 'auto',
             boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
@@ -376,7 +378,7 @@ function WidgetWrapper({
                     ? 'var(--bg-surface-2)'
                     : 'transparent',
                   color: '#ffffff',
-                  borderBottom: '1px solid var(--border-color)',
+                  borderBottom: '1px solid var(--border-primary)',
                 }}
               >
                 <span style={{ fontWeight: 600 }}>{gAway} vs {gHome}</span>

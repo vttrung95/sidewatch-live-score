@@ -611,8 +611,8 @@ export default function Home() {
           <div
             className="rounded-2xl p-6 w-full max-w-sm mx-4 shadow-2xl border"
             style={{
-              background: 'var(--bg-primary)',
-              borderColor: 'var(--border-color)',
+              background: 'var(--bg-surface)',
+              borderColor: 'var(--border-primary)',
               color: 'var(--text-primary)',
             }}
           >
@@ -627,7 +627,7 @@ export default function Home() {
               <button
                 onClick={closeAuthModal}
                 className="w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:opacity-70"
-                style={{ background: 'var(--bg-secondary)' }}
+                style={{ background: 'var(--bg-surface-2)' }}
               >
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                   <path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
@@ -668,8 +668,8 @@ export default function Home() {
                     autoFocus
                     className="w-full px-4 py-2.5 rounded-xl text-sm outline-none border transition-colors"
                     style={{
-                      background: 'var(--bg-secondary)',
-                      borderColor: authError ? '#ef4444' : 'var(--border-color)',
+                      background: 'var(--bg-input)',
+                      borderColor: authError ? '#ef4444' : 'var(--border-primary)',
                       color: 'var(--text-primary)',
                     }}
                   />
@@ -805,8 +805,8 @@ export default function Home() {
             style={{
               maxWidth: 400,
               maxHeight: '90vh',
-              background: isDark ? 'var(--bg-primary)' : '#ffffff',
-              borderColor: 'var(--border-color)',
+              background: isDark ? 'var(--bg-surface)' : '#ffffff',
+              borderColor: 'var(--border-primary)',
               color: 'var(--text-primary)',
               boxShadow: '0 25px 50px rgba(0,0,0,0.3)',
             }}
@@ -817,7 +817,7 @@ export default function Home() {
               <button
                 onClick={() => setShowAccountPanel(false)}
                 className="w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:opacity-70"
-                style={{ background: 'var(--bg-secondary)' }}
+                style={{ background: 'var(--bg-surface-2)' }}
               >
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                   <path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
@@ -835,7 +835,7 @@ export default function Home() {
               </div>
               <div
                 className="rounded-xl px-3 py-2.5 flex flex-col gap-2"
-                style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)' }}
+                style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-primary)' }}
               >
                 <div className="flex items-center justify-between">
                   <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Email</span>
@@ -846,9 +846,9 @@ export default function Home() {
                   <span
                     className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
                     style={{
-                      background: 'var(--bg-secondary)',
+                      background: 'var(--bg-surface-2)',
                       color: 'var(--text-secondary)',
-                      border: '1px solid var(--border-color)',
+                      border: '1px solid var(--border-primary)',
                     }}
                   >
                     Free
@@ -891,7 +891,7 @@ export default function Home() {
                   <div
                     key={label}
                     className="rounded-lg py-2 px-1 text-center opacity-50 cursor-not-allowed"
-                    style={{ border: '1.5px solid var(--border-color)', backgroundColor: 'var(--bg-secondary)' }}
+                    style={{ border: '1.5px solid var(--border-primary)', backgroundColor: 'var(--bg-surface-2)' }}
                   >
                     <div className="text-base mb-0.5">{emoji}</div>
                     <div className="text-[10px] font-semibold" style={{ color: 'var(--text-primary)' }}>{label}</div>
@@ -933,8 +933,8 @@ export default function Home() {
                 }}
                 className="w-full rounded-xl px-3 py-2.5 text-sm outline-none"
                 style={{
-                  background: 'var(--bg-secondary)',
-                  border: '1px solid var(--border-color)',
+                  background: 'var(--bg-surface-2)',
+                  border: '1px solid var(--border-primary)',
                   color: 'var(--text-primary)',
                   colorScheme: isDark ? 'dark' : 'light',
                 }}
@@ -970,7 +970,7 @@ export default function Home() {
                         style={
                           active
                             ? { background: 'var(--accent)', color: '#fff', border: '1px solid var(--accent)' }
-                            : { background: 'var(--bg-secondary)', color: 'var(--text-secondary)', border: '1px solid var(--border-color)' }
+                            : { background: 'var(--bg-surface-2)', color: 'var(--text-secondary)', border: '1px solid var(--border-primary)' }
                         }
                       >
                         {label}
@@ -991,7 +991,7 @@ export default function Home() {
                         style={
                           activeLanguage === lang
                             ? { background: 'var(--accent)', color: '#fff', border: '1px solid var(--accent)' }
-                            : { background: 'var(--bg-secondary)', color: 'var(--text-secondary)', border: '1px solid var(--border-color)' }
+                            : { background: 'var(--bg-surface-2)', color: 'var(--text-secondary)', border: '1px solid var(--border-primary)' }
                         }
                       >
                         {lang.toUpperCase()}
@@ -1008,8 +1008,8 @@ export default function Home() {
                     onChange={(e) => handleTimezoneChange(e.target.value)}
                     className="flex-1 rounded-lg px-2 py-1.5 text-xs outline-none min-w-0"
                     style={{
-                      background: 'var(--bg-secondary)',
-                      border: '1px solid var(--border-color)',
+                      background: 'var(--bg-surface-2)',
+                      border: '1px solid var(--border-primary)',
                       color: 'var(--text-primary)',
                       colorScheme: isDark ? 'dark' : 'light',
                     }}

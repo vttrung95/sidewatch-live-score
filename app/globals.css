@@ -23,6 +23,7 @@
 
   /* Brand */
   --brand-blue:     #1A56DB;
+  --accent:         #1A56DB;
   --brand-blue-bg:  #0f1f38;
 
   /* Scores */
@@ -58,6 +59,7 @@ html.light {
 
   /* Brand */
   --brand-blue:     #1A56DB;
+  --accent:         #1A56DB;
   --brand-blue-bg:  #dbeafe;
 
   /* Scores */

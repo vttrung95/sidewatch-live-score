@@ -104,9 +104,8 @@ function filterAndSort(
       if (excludePost(p.title) || p.score < scoreMin) return false
       // Team-subreddit posts are always on-topic
       if (teamPostIds.has(p.id)) return true
-      // r/baseball posts: keep only those relevant to this matchup
+      // r/baseball posts: must mention one of the two teams playing
       if (teamMentioned(p.title, awayTeam, homeTeam)) return true
-      if (isGameKeyword(p.title)) return true
       return false
     })
     .sort((a, b) => sortTier(a) - sortTier(b) || b.score - a.score)
@@ -116,10 +115,14 @@ export default function RedditFeed({
   awayTeam,
   homeTeam,
   isLive,
+  gamePk,
+  gameDate,
 }: {
   awayTeam: string
   homeTeam: string
   isLive: boolean
+  gamePk: number
+  gameDate: string
 }) {
   const [posts, setPosts] = useState<RedditPost[]>([])
   const [visibleCount, setVisibleCount] = useState(5)
@@ -130,8 +133,8 @@ export default function RedditFeed({
   const homeSub = getTeamSubreddit(homeTeam)
   const awaySub = getTeamSubreddit(awayTeam)
 
-  // Per-game cache so different matchups don't bleed into each other.
-  const cacheKey = `sidewatch_reddit_${awayTeam.replace(/\s+/g, '_')}_vs_${homeTeam.replace(/\s+/g, '_')}`
+  // Per-game cache keyed by gamePk + date so same-team doubleheaders never collide.
+  const cacheKey = `sidewatch_reddit_${gamePk}_${gameDate}`
 
   const loadCache = useCallback(() => {
     try {
@@ -150,6 +153,7 @@ export default function RedditFeed({
 
   const fetchPosts = useCallback(async () => {
     setLabel('LOADING FEED...')
+    console.log(`[Reddit] Fetching for: ${awayTeam} @ ${homeTeam} | gamePk: ${gamePk} | date: ${gameDate}`)
     retryCountRef.current = 0
 
     const attempt = async () => {
