@@ -162,6 +162,7 @@ export default function BoxScore({
   const [currentStatus, setCurrentStatus] = useState<GameStatus>(initialStatus)
 
   const fetchData = useCallback(async () => {
+    let keepLoading = false
     try {
       let normalized: NormalizedGame
 
@@ -180,12 +181,18 @@ export default function BoxScore({
           const msg = liveErr instanceof Error ? liveErr.message : String(liveErr)
           if (msg.includes('404')) {
             if (currentStatus === 'Live') {
-              // Transient 404 while game is in progress — do not flip to Final.
-              // Keep the last displayed game state and let the 30 s poll retry.
-              console.warn(`[BoxScore] game ${gameId} /feed/live transient 404 while Live — retrying next poll`)
+              if (!game) {
+                // First load — no data yet, keep spinner and retry in 5 s
+                console.warn(`[BoxScore] game ${gameId} /feed/live 404 on first load — retrying in 5s`)
+                keepLoading = true
+                setTimeout(() => fetchData(), 5000)
+              } else {
+                // Mid-poll transient 404 — keep last good data, 30 s interval retries
+                console.warn(`[BoxScore] game ${gameId} /feed/live transient 404 while Live — retrying next poll`)
+              }
               return
             }
-            // Game is fully archived (Preview→Final or post-game) — fall back
+            // Not Live — game is fully archived, fall back to final data
             console.log(`[BoxScore] game ${gameId} /feed/live 404 — fetching final data`)
             setCurrentStatus('Final')
             normalized = await fetchFinalData(gameId, venueFallback, detailedStateFallback)
@@ -201,9 +208,9 @@ export default function BoxScore({
       console.error('[BoxScore] fetch error:', err)
       setError(err instanceof Error ? err.message : String(err))
     } finally {
-      setLoading(false)
+      if (!keepLoading) setLoading(false)
     }
-  }, [gameId, currentStatus, venueFallback, detailedStateFallback])
+  }, [gameId, currentStatus, venueFallback, detailedStateFallback, game])
 
   useEffect(() => {
     fetchData()
