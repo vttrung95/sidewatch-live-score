@@ -77,8 +77,11 @@ function getThumbnail(post: RedditPost): string | null {
 }
 
 async function fetchSubreddit(sub: string): Promise<RedditPost[]> {
-  const res = await fetch(`https://old.reddit.com/r/${sub}/new.json?limit=50`, {
-    headers: { Accept: 'application/json' },
+  const res = await fetch(`https://www.reddit.com/r/${sub}/new.json?limit=50`, {
+    headers: {
+      'Accept': 'application/json',
+      'User-Agent': 'Sidewatch/1.0 (sports widget; contact via github.com/vttrung95/sidewatch-live-score)',
+    },
   })
   if (!res.ok) throw new Error(`Reddit ${sub} ${res.status}`)
   const json = await res.json()
