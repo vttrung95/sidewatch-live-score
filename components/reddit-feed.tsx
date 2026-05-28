@@ -98,12 +98,13 @@ function filterAndSort(
   awayTeam: string,
   homeTeam: string,
   isLive: boolean,
+  gameDate: string,
 ): RedditPost[] {
   const scoreMin = isLive ? 1 : 10
+  const gameDateStart = new Date(gameDate + 'T00:00:00Z').getTime() / 1000
   return posts
     .filter((p) => {
-      const cutoff = Date.now() / 1000 - 48 * 60 * 60
-      if (p.created_utc < cutoff) return false
+      if (p.created_utc < gameDateStart) return false
       if (excludePost(p.title) || p.score < scoreMin) return false
       // Team-subreddit posts are always on-topic
       if (teamPostIds.has(p.id)) return true
@@ -187,7 +188,7 @@ export default function RedditFeed({
           if (!seen.has(p.id)) { seen.add(p.id); merged.push(p) }
         }
 
-        const filtered = filterAndSort(merged, teamPostIds, awayTeam, homeTeam, isLive)
+        const filtered = filterAndSort(merged, teamPostIds, awayTeam, homeTeam, isLive, gameDate)
 
         const hasGameThread = merged.some((p) =>
           p.title.toLowerCase().includes('game thread')
