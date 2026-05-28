@@ -224,8 +224,8 @@ export default function BoxScore({
     )
   }
 
-  const isLive = game.status === 'Live'
-  const isFinal = game.status === 'Final'
+  const isLive = currentStatus === 'Live'
+  const isFinal = currentStatus === 'Final'
   const isDelayed = /delay|suspend/i.test(game.detailedState) || game.detailedState.toLowerCase() === 'postponed'
 
   // Cap at 9 visible innings — extra-inning games show the last 9 so the
