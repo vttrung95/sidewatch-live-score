@@ -45,19 +45,21 @@ function excludePost(title: string) {
   return EXCLUDE_KEYWORDS.some((kw) => low.includes(kw))
 }
 
-/**
- * Returns true when `title` mentions either team by nickname.
- * Checks the last word (e.g. "Cardinals") and last two words
- * (e.g. "Red Sox", "White Sox") so hyphenated or two-word nicknames work.
- */
+const AMBIGUOUS_NICKNAMES = [
+  'nationals', 'athletics', 'angels', 'padres', 'marlins',
+  'brewers', 'rangers', 'twins', 'cubs', 'reds', 'rays',
+]
+
 function teamMentioned(title: string, awayTeam: string, homeTeam: string): boolean {
   const low = title.toLowerCase()
   for (const teamName of [awayTeam, homeTeam]) {
     const words = teamName.toLowerCase().split(' ')
-    const nickname = words[words.length - 1]           // e.g. "Cardinals"
-    if (nickname.length >= 4 && low.includes(nickname)) return true
+    const nickname = words[words.length - 1]
+    const isAmbiguous = AMBIGUOUS_NICKNAMES.includes(nickname.toLowerCase())
+    if (!isAmbiguous && nickname.length >= 4 && low.includes(nickname)) return true
+    if (isAmbiguous && low.includes(teamName.toLowerCase())) return true
     if (words.length >= 2) {
-      const twoWord = words.slice(-2).join(' ')          // e.g. "Red Sox"
+      const twoWord = words.slice(-2).join(' ')
       if (low.includes(twoWord)) return true
     }
   }
@@ -99,6 +101,8 @@ function filterAndSort(
   const scoreMin = isLive ? 1 : 10
   return posts
     .filter((p) => {
+      const cutoff = Date.now() / 1000 - 48 * 60 * 60
+      if (p.created_utc < cutoff) return false
       if (excludePost(p.title) || p.score < scoreMin) return false
       // Team-subreddit posts are always on-topic
       if (teamPostIds.has(p.id)) return true
