@@ -164,10 +164,10 @@ export default function BoxScore({
   // own the retry loop and prevents the 30 s setInterval from compounding it.
   const liveRetryCount = useRef(0)
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (isRetry = false) => {
     // While the setTimeout retry chain is active (first load, no data yet),
     // suppress the 30 s interval so only one retry path runs at a time.
-    if (liveRetryCount.current > 0 && !game) return
+    if (!isRetry && liveRetryCount.current > 0 && !game) return
 
     let keepLoading = false
     try {
@@ -194,7 +194,7 @@ export default function BoxScore({
                   // Still within retry budget — keep spinner and try again in 5 s
                   console.warn(`[BoxScore] game ${gameId} /feed/live 404 on first load — retry ${liveRetryCount.current}/3 in 5s`)
                   keepLoading = true
-                  setTimeout(() => fetchData(), 5000)
+                  setTimeout(() => fetchData(true), 5000)
                   return
                 } else {
                   // Max retries hit — show something rather than spinning forever
@@ -228,7 +228,7 @@ export default function BoxScore({
     } finally {
       if (!keepLoading) setLoading(false)
     }
-  }, [gameId, currentStatus, venueFallback, detailedStateFallback, game])
+  }, [gameId, currentStatus, venueFallback, detailedStateFallback])
 
   useEffect(() => {
     fetchData()
