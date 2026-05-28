@@ -80,7 +80,7 @@ async function fetchSubreddit(sub: string): Promise<RedditPost[]> {
   const res = await fetch(`/api/reddit?sub=${sub}`)
   if (!res.ok) throw new Error(`Reddit proxy ${sub} ${res.status}`)
   const json = await res.json()
-  return (json.posts ?? []).map((c: { data: RedditPost }) => c.data)
+  return json.posts ?? []
 }
 
 function sortTier(p: RedditPost): number {
