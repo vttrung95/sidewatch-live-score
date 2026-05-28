@@ -178,14 +178,12 @@ export default function BoxScore({
         } catch (liveErr) {
           const msg = liveErr instanceof Error ? liveErr.message : String(liveErr)
           if (msg.includes('404')) {
-            if (currentStatus === 'Live') {
-              // Transient 404 while Live — do NOT flip to Final, keep showing last good data
-              // The 30s interval will retry automatically
-              console.warn(`[BoxScore] game ${gameId} /feed/live transient 404 — keeping Live state`)
-              return
+            // Always fall back to fetchFinalData to show something
+            // But only flip currentStatus to Final when game is NOT Live
+            // This way: box score shows data, header stays LIVE (correct)
+            if (currentStatus !== 'Live') {
+              setCurrentStatus('Final')
             }
-            // Game archived — fall back to final data
-            setCurrentStatus('Final')
             normalized = await fetchFinalData(gameId, venueFallback, detailedStateFallback)
           } else {
             throw liveErr
