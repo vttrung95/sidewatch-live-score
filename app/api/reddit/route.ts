@@ -11,7 +11,8 @@ export async function GET(request: NextRequest) {
     const res = await fetch(`https://www.reddit.com/r/${sub}/new.json?limit=50`, {
       headers: {
         'Accept': 'application/json',
-        'User-Agent': 'Sidewatch/1.0 (sports scores widget; github.com/vttrung95/sidewatch-live-score)',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'User-Agent': 'web:sidewatch:1.0 (by /u/vttrung95)',
       },
     })
 
