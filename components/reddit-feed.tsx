@@ -101,7 +101,8 @@ function filterAndSort(
   gameDate: string,
 ): RedditPost[] {
   const scoreMin = isLive ? 1 : 10
-  const gameDateStart = new Date(gameDate + 'T00:00:00Z').getTime() / 1000
+  const dateOnly = gameDate.slice(0, 10)
+  const gameDateStart = new Date(dateOnly + 'T00:00:00Z').getTime() / 1000
   return posts
     .filter((p) => {
       if (p.created_utc < gameDateStart) return false
