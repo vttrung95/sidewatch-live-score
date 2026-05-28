@@ -18,6 +18,7 @@ interface RedditPost {
   }
   author: string
   num_comments: number
+  created_utc: number
 }
 
 type FeedLabel =
