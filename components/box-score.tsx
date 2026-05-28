@@ -178,8 +178,14 @@ export default function BoxScore({
           }
         } catch (liveErr) {
           const msg = liveErr instanceof Error ? liveErr.message : String(liveErr)
-          // /feed/live returns 404 once a game is fully archived — fall back
           if (msg.includes('404')) {
+            if (currentStatus === 'Live') {
+              // Transient 404 while game is in progress — do not flip to Final.
+              // Keep the last displayed game state and let the 30 s poll retry.
+              console.warn(`[BoxScore] game ${gameId} /feed/live transient 404 while Live — retrying next poll`)
+              return
+            }
+            // Game is fully archived (Preview→Final or post-game) — fall back
             console.log(`[BoxScore] game ${gameId} /feed/live 404 — fetching final data`)
             setCurrentStatus('Final')
             normalized = await fetchFinalData(gameId, venueFallback, detailedStateFallback)
