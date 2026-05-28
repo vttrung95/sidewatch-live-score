@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { getTeamAbbr } from '@/lib/utils'
 
 /* ─── Shared types ───────────────────────────────────────────────────── */
@@ -160,16 +160,7 @@ export default function BoxScore({
   // Track effective status so polling can switch strategies mid-session
   // (e.g. a LIVE game finishes and /feed/live starts returning 404)
   const [currentStatus, setCurrentStatus] = useState<GameStatus>(initialStatus)
-  // Counts consecutive /feed/live 404s on first load; lets setTimeout chain
-  // own the retry loop and prevents the 30 s setInterval from compounding it.
-  const liveRetryCount = useRef(0)
-
-  const fetchData = useCallback(async (isRetry = false) => {
-    // While the setTimeout retry chain is active (first load, no data yet),
-    // suppress the 30 s interval so only one retry path runs at a time.
-    if (!isRetry && liveRetryCount.current > 0 && !game) return
-
-    let keepLoading = false
+  const fetchData = useCallback(async () => {
     try {
       let normalized: NormalizedGame
 
@@ -188,45 +179,27 @@ export default function BoxScore({
           const msg = liveErr instanceof Error ? liveErr.message : String(liveErr)
           if (msg.includes('404')) {
             if (currentStatus === 'Live') {
-              if (!game) {
-                liveRetryCount.current += 1
-                if (liveRetryCount.current <= 3) {
-                  // Still within retry budget — keep spinner and try again in 5 s
-                  console.warn(`[BoxScore] game ${gameId} /feed/live 404 on first load — retry ${liveRetryCount.current}/3 in 5s`)
-                  keepLoading = true
-                  setTimeout(() => fetchData(true), 5000)
-                  return
-                } else {
-                  // Max retries hit — show something rather than spinning forever
-                  console.warn(`[BoxScore] game ${gameId} /feed/live 404 max retries — falling back to final data`)
-                  liveRetryCount.current = 0
-                  normalized = await fetchFinalData(gameId, venueFallback, detailedStateFallback)
-                }
-              } else {
-                // Mid-poll transient 404 — keep last good data, 30 s interval retries
-                console.warn(`[BoxScore] game ${gameId} /feed/live transient 404 while Live — retrying next poll`)
-                return
-              }
-            } else {
-              // Not Live — game is fully archived, fall back to final data
-              console.log(`[BoxScore] game ${gameId} /feed/live 404 — fetching final data`)
-              setCurrentStatus('Final')
-              normalized = await fetchFinalData(gameId, venueFallback, detailedStateFallback)
+              // Transient 404 while Live — do NOT flip to Final, keep showing last good data
+              // The 30s interval will retry automatically
+              console.warn(`[BoxScore] game ${gameId} /feed/live transient 404 — keeping Live state`)
+              return
             }
+            // Game archived — fall back to final data
+            setCurrentStatus('Final')
+            normalized = await fetchFinalData(gameId, venueFallback, detailedStateFallback)
           } else {
             throw liveErr
           }
         }
       }
 
-      liveRetryCount.current = 0
       setGame(normalized)
       setError(null)
     } catch (err) {
       console.error('[BoxScore] fetch error:', err)
       setError(err instanceof Error ? err.message : String(err))
     } finally {
-      if (!keepLoading) setLoading(false)
+      setLoading(false)
     }
   }, [gameId, currentStatus, venueFallback, detailedStateFallback])
 
