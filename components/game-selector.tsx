@@ -309,7 +309,7 @@ function WidgetWrapper({
               homeTeam={currentGame.teams.home.team.name}
               isLive={gameState === 'Live'}
               gamePk={currentGame.gamePk}
-              gameDate={currentGame.officialDate ?? currentGame.gameDate ?? new Date().toISOString().slice(0, 10)}
+              gameDate={currentGame.gameDate ?? new Date().toISOString().slice(0, 10)}
             />
           </div>
         )}
