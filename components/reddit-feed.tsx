@@ -130,6 +130,7 @@ export default function RedditFeed({
 }) {
   const [posts, setPosts] = useState<RedditPost[]>([])
   const [visibleCount, setVisibleCount] = useState(5)
+  const MAX_VISIBLE_POSTS = 15
   const [label, setLabel] = useState<FeedLabel>('LOADING FEED...')
   const retryRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const retryCountRef = useRef(0)
@@ -299,9 +300,9 @@ export default function RedditFeed({
         )
       })}
 
-      {posts.length > visibleCount && (
+      {posts.length > visibleCount && visibleCount < MAX_VISIBLE_POSTS && (
         <button
-          onClick={() => setVisibleCount((c) => c + 5)}
+          onClick={() => setVisibleCount((c) => Math.min(c + 5, MAX_VISIBLE_POSTS))}
           style={s.loadMore}
         >
           Load 5 more
