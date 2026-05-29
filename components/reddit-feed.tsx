@@ -79,8 +79,8 @@ function getThumbnail(post: RedditPost): string | null {
   return null
 }
 
-async function fetchSubreddit(sub: string): Promise<RedditPost[]> {
-  const res = await fetch(`/api/reddit?sub=${sub}`)
+async function fetchSubreddit(sub: string, gameDate: string): Promise<RedditPost[]> {
+  const res = await fetch(`/api/reddit?sub=${sub}&gameDate=${gameDate}`)
   if (!res.ok) throw new Error(`Reddit proxy ${sub} ${res.status}`)
   const json = await res.json()
   return json.posts ?? []
@@ -163,10 +163,10 @@ export default function RedditFeed({
     const attempt = async () => {
       try {
         const [baseballResult, homeResult, awayResult] = await Promise.allSettled([
-          fetchSubreddit('baseball'),
-          homeSub !== 'baseball' ? fetchSubreddit(homeSub) : Promise.resolve<RedditPost[]>([]),
+          fetchSubreddit('baseball', gameDate),
+          homeSub !== 'baseball' ? fetchSubreddit(homeSub, gameDate) : Promise.resolve<RedditPost[]>([]),
           awaySub !== 'baseball' && awaySub !== homeSub
-            ? fetchSubreddit(awaySub)
+            ? fetchSubreddit(awaySub, gameDate)
             : Promise.resolve<RedditPost[]>([]),
         ])
 
