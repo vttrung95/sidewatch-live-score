@@ -601,6 +601,7 @@ interface GameSelectorProps {
 }
 
 export default function GameSelector({ user, savedGameId, favoriteTeam }: GameSelectorProps) {
+  const isPiPSupported = typeof window !== 'undefined' && 'documentPictureInPicture' in window
   const [games, setGames] = useState<MlbGame[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -719,7 +720,7 @@ export default function GameSelector({ user, savedGameId, favoriteTeam }: GameSe
             isLive && !isDelayed && ls?.inningState && ls?.currentInningOrdinal
               ? `${ls.inningState} ${ls.currentInningOrdinal}`
               : null
-          const isDisabled = (isUpcoming && !isDelayed) || launching === game.gamePk
+          const isDisabled = (isUpcoming && !isDelayed) || launching === game.gamePk || !isPiPSupported
 
           return (
             <div
@@ -879,6 +880,11 @@ export default function GameSelector({ user, savedGameId, favoriteTeam }: GameSe
                   ? 'Not Started Yet'
                   : '⊞ Launch Widget'}
               </button>
+              {!isPiPSupported && (
+                <p className="text-xs text-center" style={{ color: 'var(--text-secondary)' }}>
+                  Requires Chrome 116+ on desktop
+                </p>
+              )}
             </div>
           )
         })}
