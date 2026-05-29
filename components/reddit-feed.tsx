@@ -133,6 +133,7 @@ export default function RedditFeed({
   const [label, setLabel] = useState<FeedLabel>('LOADING FEED...')
   const retryRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const retryCountRef = useRef(0)
+  const postsRef = useRef<RedditPost[]>([])
 
   const homeSub = getTeamSubreddit(homeTeam)
   const awaySub = getTeamSubreddit(awayTeam)
@@ -194,10 +195,21 @@ export default function RedditFeed({
           p.title.toLowerCase().includes('game thread')
         )
 
-        setPosts(filtered)
+        // Merge with existing posts: new posts prepended, dedupe by id.
+        // Existing posts already passed the filter — mark all as teamPostIds so
+        // filterAndSort doesn't re-apply the team-mention check to them.
+        const existingIds = new Set(postsRef.current.map((p) => p.id))
+        const combined = [
+          ...filtered.filter((p) => !existingIds.has(p.id)),
+          ...postsRef.current,
+        ]
+        const allIds = new Set(combined.map((p) => p.id))
+        const final = filterAndSort(combined, allIds, awayTeam, homeTeam, isLive, gameDate)
+        postsRef.current = final
+        setPosts(final)
         setLabel(hasGameThread ? 'R/BASEBALL · GAME THREAD' : 'R/BASEBALL · NEW POSTS')
 
-        try { localStorage.setItem(cacheKey, JSON.stringify({ posts: filtered, timestamp: Date.now() })) } catch {}
+        try { localStorage.setItem(cacheKey, JSON.stringify({ posts: final, timestamp: Date.now() })) } catch {}
       } catch {
         const delays = [5_000, 15_000, 30_000]
         const delay = delays[Math.min(retryCountRef.current, delays.length - 1)]
@@ -211,12 +223,27 @@ export default function RedditFeed({
     attempt()
   }, [homeSub, awaySub, cacheKey, awayTeam, homeTeam, isLive, loadCache])
 
+  // Reset pagination and posts only when the game changes
   useEffect(() => {
-    setVisibleCount(5)   // reset pagination whenever game/fetch changes
+    postsRef.current = []
+    setPosts([])
+    setVisibleCount(5)
+  }, [gamePk])
+
+  // Initial fetch
+  useEffect(() => {
     fetchPosts()
     return () => {
       if (retryRef.current) clearTimeout(retryRef.current)
     }
+  }, [fetchPosts])
+
+  // Poll every 120s — merge new posts, preserve scroll position
+  useEffect(() => {
+    const id = setInterval(() => {
+      fetchPosts()
+    }, 120_000)
+    return () => clearInterval(id)
   }, [fetchPosts])
 
   const visible = posts.slice(0, visibleCount)
