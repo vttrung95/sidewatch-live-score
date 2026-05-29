@@ -101,19 +101,18 @@ function filterAndSort(
   gameDate: string,
 ): RedditPost[] {
   const scoreMin = isLive ? 1 : 10
-  const dateOnly = gameDate.slice(0, 10)
-  const gameDateStart = new Date(dateOnly + 'T00:00:00Z').getTime() / 1000
-  return posts
-    .filter((p) => {
-      if (p.created_utc < gameDateStart) return false
-      if (excludePost(p.title) || p.score < scoreMin) return false
-      // Team-subreddit posts are always on-topic
-      if (teamPostIds.has(p.id)) return true
-      // r/baseball posts: must mention one of the two teams playing
-      if (teamMentioned(p.title, awayTeam, homeTeam)) return true
-      return false
-    })
-    .sort((a, b) => sortTier(a) - sortTier(b) || b.score - a.score)
+  const cutoff = new Date(gameDate + 'T00:00:00Z').getTime() / 1000
+  const filtered = posts.filter((p) => {
+    if (p.created_utc < cutoff) return false
+    if (excludePost(p.title) || p.score < scoreMin) return false
+    // Team-subreddit posts are always on-topic
+    if (teamPostIds.has(p.id)) return true
+    // r/baseball posts: must mention one of the two teams playing
+    if (teamMentioned(p.title, awayTeam, homeTeam)) return true
+    return false
+  })
+  console.log(`[Reddit Filter] gameDate=${gameDate}, cutoff=${cutoff}, kept=${filtered.length}/${posts.length}`)
+  return filtered.sort((a, b) => sortTier(a) - sortTier(b) || b.score - a.score)
 }
 
 export default function RedditFeed({
